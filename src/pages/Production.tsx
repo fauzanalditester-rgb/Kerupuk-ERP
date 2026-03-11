@@ -18,12 +18,12 @@ import {
 import { cn } from '../lib/utils';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
-import { WorkOrder, Category } from '../lib/types';
+import { WorkOrder } from '../lib/types';
 
 import { useNavigate } from 'react-router-dom';
 
 export default function Production() {
-  const { workOrders, completeWorkOrder, createWorkOrder, deleteWorkOrder, inventory, recipes, addInventoryItem, deleteInventoryItem, addRecipe, updateRecipe } = useERP();
+  const { workOrders, completeWorkOrder, createWorkOrder, deleteWorkOrder, inventory, recipes } = useERP();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -66,30 +66,26 @@ export default function Production() {
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
 
-  // New Product State
-  const [isNewProduct, setIsNewProduct] = useState(false);
-  const [newProductName, setNewProductName] = useState('');
-  const [newProductCategory, setNewProductCategory] = useState<Category>('Pempek');
-
   // Materials for WO
   const [materialsList, setMaterialsList] = useState<{ materialId: string; amount: number; isTemplate?: boolean }[]>([]);
   const [currentMaterialId, setCurrentMaterialId] = useState('');
   const [currentMaterialQty, setCurrentMaterialQty] = useState(0);
   const [currentMaterialInputUnit, setCurrentMaterialInputUnit] = useState<'kg' | 'pcs'>('kg');
 
-  const finishedGoods = useMemo(() => inventory.filter(item => item.type === 'finished'), [inventory]);
+  // Products that have recipes defined in Master Resep
+  const finishedGoods = useMemo(() => {
+    return inventory.filter(item =>
+      item.type === 'finished' &&
+      recipes.some(r => r.productId === item.id)
+    );
+  }, [inventory, recipes]);
+
   const rawMaterials = useMemo(() => inventory.filter(item => item.type === 'raw'), [inventory]);
 
   // Auto-fill template default berdasarkan resep dinamis
   React.useEffect(() => {
     if (!isModalOpen) {
       setMaterialsList([]); // Bersihkan list ketika modal ditutup
-      return;
-    }
-
-    if (isNewProduct) {
-      // Jika produk baru, bahan dibutuhkan harus kosong
-      setMaterialsList(prev => prev.filter(p => !p.isTemplate));
       return;
     }
 
@@ -103,22 +99,8 @@ export default function Production() {
 
       if (recipe) {
         const defaultMaterials = recipe.ingredients.map(ing => {
-          let actualMaterialId = ing.materialId;
-
-          // Kompatibilitas mundur khusus ID '5' sbg Lenjer bawaan pabrik (agar resep manual buatan user tdk tertimpa)
-          if (selProduct?.id === '5' && (ing.amount === 0.75 || ing.amount === 5)) {
-            if (ing.amount === 0.75) {
-              const tepung = rawMaterials.find(m => m.name.toLowerCase().includes('tepung'));
-              if (tepung) actualMaterialId = tepung.id;
-            }
-            if (ing.amount === 5) {
-              const ikan = rawMaterials.find(m => m.name.toLowerCase().includes('ikan'));
-              if (ikan) actualMaterialId = ikan.id;
-            }
-          }
-
           return {
-            materialId: actualMaterialId,
+            materialId: ing.materialId,
             amount: Number((ing.amount * totalInProductUnit).toFixed(2)),
             isTemplate: true
           };
@@ -129,25 +111,11 @@ export default function Production() {
           return [...defaultMaterials, ...manualItems];
         });
       } else {
-        // Fallback default khusus untuk pempek lenjer bawaan Pabrik (ID: 5)
-        if (selProduct?.id === '5') {
-          const tepung = rawMaterials.find(m => m.name.toLowerCase().includes('tepung'));
-          const ikan = rawMaterials.find(m => m.name.toLowerCase().includes('ikan'));
-          const fallbackDefaults: { materialId: string; amount: number; isTemplate?: boolean }[] = [];
-          if (tepung) fallbackDefaults.push({ materialId: tepung.id, amount: Number((0.2 * totalInProductUnit).toFixed(2)), isTemplate: true });
-          if (ikan) fallbackDefaults.push({ materialId: ikan.id, amount: Number((0.15 * totalInProductUnit).toFixed(2)), isTemplate: true });
-
-          setMaterialsList(prev => {
-            const manualItems = prev.filter(p => !p.isTemplate);
-            return [...fallbackDefaults, ...manualItems];
-          });
-        } else {
-          // Bersihkan template list karena tidak ada resep untuk produk yang dipilih
-          setMaterialsList(prev => prev.filter(p => !p.isTemplate));
-        }
+        // Bersihkan template list karena tidak ada resep untuk produk yang dipilih
+        setMaterialsList(prev => prev.filter(p => !p.isTemplate));
       }
     }
-  }, [totalInProductUnit, rawMaterials, selectedProductId, isModalOpen, isNewProduct, recipes, finishedGoods]);
+  }, [totalInProductUnit, rawMaterials, selectedProductId, isModalOpen, recipes, finishedGoods]);
 
 
   // Filtered work orders
@@ -218,26 +186,8 @@ export default function Production() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (quantity > 0 && startDate && dueDate) {
-      let productId = selectedProductId;
-      let productName = finishedGoods.find(i => i.id === selectedProductId)?.name || 'Unknown Product';
-
-      if (isNewProduct && newProductName) {
-        productId = `INV-${Date.now()}`;
-        productName = newProductName;
-        addInventoryItem({
-          id: productId,
-          name: newProductName,
-          category: newProductCategory,
-          stock: 0,
-          unit: newProductCategory === 'Kerupuk' ? 'bks' : 'kg',
-          minStock: 10,
-          price: 0,
-          type: 'finished'
-        });
-      } else if (!selectedProductId) {
-        return;
-      }
+    if (quantity > 0 && startDate && dueDate && selectedProductId) {
+      const productName = finishedGoods.find(i => i.id === selectedProductId)?.name || 'Unknown Product';
 
       const finalMaterialsList = [...materialsList];
       if (currentMaterialId && currentMaterialQty > 0) {
@@ -249,30 +199,6 @@ export default function Production() {
         finalMaterialsList.push({ materialId: currentMaterialId, amount: finalAmount });
       }
 
-      // OTOMATIS: Update atau Buat Master Resep (BOM) setiap kali input produksi
-      if (finalMaterialsList.length > 0) {
-        const existingRecipe = recipes.find(r => r.productId === productId);
-        const recipeData = {
-          productId: productId,
-          productName: productName,
-          ingredients: finalMaterialsList.map(item => ({
-            materialId: item.materialId,
-            amount: Number((item.amount / totalInProductUnit).toPrecision(6)) // Presisi lebih tinggi untuk normalisasi per unit
-          }))
-        };
-
-        if (existingRecipe) {
-          // Update resep yang sudah ada
-          updateRecipe(existingRecipe.id, { ...existingRecipe, ...recipeData });
-        } else {
-          // Buat resep baru jika belum ada
-          addRecipe({
-            id: `RCP-${Date.now()}`,
-            ...recipeData
-          });
-        }
-      }
-
       // 4. Create Work Order based on Recipe/BOM snapshot
       const getNowWithTime = (d: string) => {
         const now = new Date();
@@ -282,14 +208,14 @@ export default function Production() {
 
       const newWO: WorkOrder = {
         id: `WO-${Date.now()}`,
-        productId,
+        productId: selectedProductId,
         productName,
         quantity,
         status: 'Pending',
         startDate: getNowWithTime(startDate),
         dueDate: getNowWithTime(dueDate),
         progress: 0,
-        materialsUsed: finalMaterialsList,
+        materialsUsed: finalMaterialsList.map(m => ({ materialId: m.materialId, amount: m.amount })),
         batchCount,
         yieldPerBatch,
         yieldUnit
@@ -307,10 +233,7 @@ export default function Production() {
       setDueDate(new Date().toISOString().split('T')[0]);
       setMaterialsList([]);
       setCurrentMaterialQty(0);
-      setCurrentMaterialInputUnit('kg'); // Reset unit
-      setIsNewProduct(false);
-      setNewProductName('');
-      setNewProductCategory('Pempek');
+      setCurrentMaterialInputUnit('kg');
     }
   };
 
@@ -326,7 +249,6 @@ export default function Production() {
   const handleOpenModal = () => {
     setIsModalOpen(true);
     setSelectedProductId(''); // Ensure it starts empty
-    setIsNewProduct(false); // Reset toggle
   };
 
   return (
@@ -341,13 +263,12 @@ export default function Production() {
           className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 shadow-sm shadow-emerald-200 transition-colors"
         >
           <Plus size={18} />
-          Perintah Kerja Baru
+          Buat Perintah Kerja Baru
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
               <Factory size={20} />
@@ -356,16 +277,16 @@ export default function Production() {
           </div>
           <p className="text-2xl font-bold text-slate-900">{totalWO}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
               <Clock size={20} />
             </div>
-            <span className="text-sm font-medium text-slate-500">Tertunda</span>
+            <span className="text-sm font-medium text-slate-500">Dalam Proses</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{pendingCount}</p>
+          <p className="text-2xl font-bold text-slate-900">{inProgressCount}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
               <CheckCircle size={20} />
@@ -374,134 +295,114 @@ export default function Production() {
           </div>
           <p className="text-2xl font-bold text-slate-900">{completedCount}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
               <Package size={20} />
             </div>
-            <span className="text-sm font-medium text-slate-500">Total Diproduksi</span>
+            <span className="text-sm font-medium text-slate-500">Total Produksi</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">{totalProduced} unit</p>
+          <p className="text-2xl font-bold text-slate-900">{totalProduced.toLocaleString()} kg/pcs</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Work Orders List */}
+      <div className="flex flex-col lg:grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
-          {/* Search & Filter Bar */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
                 placeholder="Cari perintah kerja..."
-                className="pl-10 pr-10 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
               />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            <div className="relative w-44">
-              <input
-                type="date"
-                className="px-3 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white text-sm text-slate-600"
-                value={filterDate}
-                onChange={e => setFilterDate(e.target.value)}
-                title="Filter Tanggal Produksi"
-              />
-              {filterDate && (
-                <button
-                  onClick={() => setFilterDate('')}
-                  className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
             </div>
             <div className="relative">
               <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
                 className={cn(
-                  "px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors text-sm",
-                  filterStatus !== 'all'
-                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                    : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  "flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors",
+                  isFilterOpen || filterStatus !== 'all' || filterDate
+                    ? "border-emerald-500 text-emerald-600 bg-emerald-50"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 )}
               >
-                <Filter size={16} />
-                Filter
-                {filterStatus !== 'all' && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                )}
+                <Filter size={18} />
+                <span className="text-sm font-medium">Filter</span>
               </button>
+
               {isFilterOpen && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-slate-200 shadow-lg z-50 p-2">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Status</p>
-                  {[
-                    { value: 'all', label: 'Semua Status' },
-                    { value: 'Pending', label: '⏳ Tertunda' },
-                    { value: 'In Progress', label: '🔄 Sedang Berjalan' },
-                    { value: 'Completed', label: '✅ Selesai' },
-                  ].map(opt => (
+                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 z-50">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Status</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {['all', 'Pending', 'In Progress', 'Completed'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => setFilterStatus(status)}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+                              filterStatus === status
+                                ? "bg-emerald-600 border-emerald-600 text-white shadow-md"
+                                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                            )}
+                          >
+                            {status === 'all' ? 'Semua' : getStatusLabel(status)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Tanggal</label>
+                      <input
+                        type="date"
+                        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        value={filterDate}
+                        onChange={(e) => setFilterDate(e.target.value)}
+                      />
+                    </div>
                     <button
-                      key={opt.value}
-                      onClick={() => { setFilterStatus(opt.value); setIsFilterOpen(false); }}
-                      className={cn(
-                        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                        filterStatus === opt.value
-                          ? "bg-emerald-50 text-emerald-700 font-medium"
-                          : "text-slate-600 hover:bg-slate-50"
-                      )}
+                      onClick={() => {
+                        setFilterStatus('all');
+                        setFilterDate('');
+                        setIsFilterOpen(false);
+                      }}
+                      className="w-full py-2 text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"
                     >
-                      {opt.label}
+                      Reset Filter
                     </button>
-                  ))}
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <Factory size={20} className="text-slate-400" />
-            Perintah Kerja ({filteredWorkOrders.length})
-          </h2>
-
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {filteredWorkOrders.length === 0 ? (
-              <div className="text-center py-12 bg-white rounded-xl border border-slate-200 text-slate-400">
-                <Factory size={48} className="mx-auto mb-3 opacity-20" />
-                <p className="font-medium text-slate-500">
-                  {searchQuery || filterStatus !== 'all'
-                    ? 'Tidak ditemukan perintah kerja yang cocok.'
-                    : 'Tidak ada perintah kerja aktif.'}
-                </p>
-                <p className="text-sm mt-1">
-                  {searchQuery ? 'Coba kata kunci lain.' : 'Klik "Perintah Kerja Baru" untuk memulai produksi.'}
-                </p>
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 py-20 text-center">
+                <Factory size={48} className="mx-auto mb-4 text-slate-300 opacity-20" />
+                <p className="font-medium text-slate-500">Tidak ada perintah kerja yang ditemukan.</p>
+                <button
+                  onClick={handleOpenModal}
+                  className="mt-4 text-emerald-600 font-bold hover:text-emerald-700 underline text-sm"
+                >
+                  Buat Perintah Kerja Baru
+                </button>
               </div>
             ) : (
               filteredWorkOrders.map((wo) => (
-                <div key={wo.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden">
-                  <div className={cn(
-                    "absolute top-0 left-0 w-1 h-full",
-                    wo.status === 'Completed' ? "bg-emerald-500" :
-                      wo.status === 'In Progress' ? "bg-blue-500" :
-                        "bg-amber-400"
-                  )} />
-
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-lg font-semibold text-slate-900">{wo.productName}</h3>
+                <div key={wo.id} className="bg-white border border-slate-200 rounded-2xl p-5 hover:shadow-lg transition-all duration-300 group">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-0.5 rounded">
+                          {wo.id}
+                        </span>
                         <span className={cn(
-                          "px-2.5 py-0.5 rounded-full text-xs font-medium border",
+                          "px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border",
                           wo.status === 'In Progress' ? "bg-blue-50 text-blue-700 border-blue-100" :
                             wo.status === 'Completed' ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
                               "bg-amber-50 text-amber-700 border-amber-100"
@@ -509,46 +410,37 @@ export default function Production() {
                           {getStatusLabel(wo.status)}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-500 font-mono flex items-center gap-2">
-                        {wo.id}
-                        <span className="text-slate-300">•</span>
-                        <span className="text-[10px] font-normal text-slate-400">Mulai: {wo.startDate}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6 text-sm">
-                    <div>
-                      <p className="text-slate-500 mb-1">Jumlah</p>
-                      <p className="font-medium text-slate-900">{wo.quantity} unit</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500 mb-1">Tanggal Mulai</p>
-                      <div className="flex items-center gap-1.5 text-slate-900">
-                        <Calendar size={14} className="text-slate-400" />
-                        {wo.startDate}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-slate-500 mb-1">Tenggat Waktu</p>
-                      <div className="flex items-center gap-1.5 text-slate-900">
-                        <Calendar size={14} className="text-slate-400" />
-                        {wo.dueDate}
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-slate-500 mb-1">Kemajuan</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all duration-500",
-                              wo.status === 'Completed' ? "bg-emerald-500" : "bg-blue-500"
-                            )}
-                            style={{ width: `${wo.status === 'Completed' ? 100 : wo.progress}%` }}
-                          />
+                      <h3 className="text-xl font-black text-slate-900 group-hover:text-emerald-600 transition-colors">
+                        {wo.productName}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Package size={16} className="text-slate-400" />
+                          <span>{wo.quantity} {wo.yieldUnit || 'kg'}</span>
                         </div>
-                        <span className="text-xs font-medium text-slate-700">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Calendar size={16} className="text-slate-400" />
+                          <span>Sampai: {wo.dueDate}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="w-32 h-2.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200 self-end">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500 shadow-sm",
+                            wo.status === 'Completed' ? "bg-emerald-500" : "bg-blue-500"
+                          )}
+                          style={{ width: `${wo.status === 'Completed' ? 100 : wo.progress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full animate-pulse",
+                          wo.status === 'Completed' ? "bg-emerald-500" : "bg-blue-500"
+                        )} />
+                        <span className="text-xs font-bold text-slate-700">
                           {wo.status === 'Completed' ? '100' : wo.progress}%
                         </span>
                       </div>
@@ -590,7 +482,6 @@ export default function Production() {
           </div>
         </div>
 
-        {/* Sidebar: BoM & Alerts */}
         <div className="space-y-6">
           <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <CheckCircle size={20} className="text-slate-400" />
@@ -598,8 +489,16 @@ export default function Production() {
           </h2>
 
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-4 bg-slate-50 border-b border-slate-200">
-              <h3 className="font-medium text-slate-900">Resep Standar</h3>
+            <div className="p-4 bg-slate-50 border-b border-slate-200 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium text-slate-900">Resep Standar</h3>
+                <button
+                  onClick={() => navigate('/recipes')}
+                  className="text-xs text-emerald-600 font-medium hover:text-emerald-700"
+                >
+                  Lihat Semua Resep
+                </button>
+              </div>
             </div>
             <div className="divide-y divide-slate-100">
               {recipes.map((recipe) => (
@@ -609,32 +508,18 @@ export default function Production() {
                     {recipe.ingredients.map((ing) => {
                       const mat = inventory.find(m => m.id === ing.materialId);
                       return (
-                        <li key={ing.materialId} className="text-sm text-slate-600 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                          {mat?.name} ({ing.amount} {mat?.unit})
+                        <li key={ing.materialId} className="flex justify-between text-xs text-slate-600">
+                          <span>{mat?.name}</span>
+                          <span className="font-medium text-slate-900">{ing.amount} {mat?.unit || 'unit'}</span>
                         </li>
                       );
                     })}
                   </ul>
                 </div>
               ))}
-              {recipes.length === 0 && (
-                <div className="p-8 text-center text-slate-400 text-sm">
-                  Belum ada resep standar.
-                </div>
-              )}
-            </div>
-            <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
-              <button
-                onClick={() => navigate('/recipes')}
-                className="text-sm text-emerald-600 font-medium hover:text-emerald-700"
-              >
-                Lihat Semua Resep
-              </button>
             </div>
           </div>
 
-          {/* Dynamic Alerts */}
           {lowStockAlerts.length > 0 && (
             <div className="bg-amber-50 rounded-xl border border-amber-100 p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -648,21 +533,13 @@ export default function Production() {
                 </div>
               ))}
               <p className="text-xs text-amber-700 italic">
-                Bahan di atas sudah mendekati/melewati stok minimum. Pertimbangkan pembelian ulang.
+                Bahan di atas sudah mendekati/melewati stok minimum.
               </p>
             </div>
           )}
-
-
         </div>
       </div>
 
-      {/* Click outside filter to close */}
-      {isFilterOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
-      )}
-
-      {/* Detail Modal */}
       <Modal
         isOpen={isDetailModalOpen}
         onClose={() => { setIsDetailModalOpen(false); setSelectedWO(null); }}
@@ -732,68 +609,13 @@ export default function Production() {
                   <p className="text-[10px] text-emerald-800 uppercase font-bold tracking-wider">Informasi Batch</p>
                   <p className="text-sm text-emerald-700 font-medium">
                     {selectedWO.batchCount} Batch x {selectedWO.yieldPerBatch} {selectedWO.yieldUnit}
-                    {selectedWO.yieldUnit === 'kg' && (
-                      <span className="text-[10px] text-emerald-500 ml-1">
-                        (≈{Math.round(selectedWO.quantity * 32)} pcs)
-                      </span>
-                    )}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-emerald-800 uppercase font-bold tracking-wider">Total Hasil</p>
                   <p className="text-lg font-bold text-emerald-600">
-                    {selectedWO.quantity} {selectedWO.yieldUnit === 'kg' ? 'kg' : 'pcs'}
+                    {selectedWO.quantity} {selectedWO.yieldUnit}
                   </p>
-                </div>
-              </div>
-            )}
-
-            {/* Materials Used */}
-            {selectedWO.materialsUsed && selectedWO.materialsUsed.length > 0 && (
-              <div>
-                <p className="text-sm font-semibold text-slate-700 mb-2">Bahan yang Digunakan</p>
-                <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-100 text-slate-500">
-                      <tr>
-                        <th className="px-4 py-2 text-left">Bahan</th>
-                        <th className="px-4 py-2 text-left">Jumlah</th>
-                        <th className="px-4 py-2 text-left">Stok Saat Ini</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedWO.materialsUsed.map((mat, idx) => {
-                        const item = inventory.find(i => i.id === mat.materialId);
-                        const isFinished = item?.type === 'finished';
-                        // Display units consistently with the input form
-                        const displayUnit = (item?.unit === 'kg' && !isFinished) ? 'kg' : (item?.unit === 'kg' && isFinished ? 'pcs' : item?.unit || '');
-
-                        return (
-                          <tr key={idx} className="border-t border-slate-100">
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <span className="font-medium text-slate-900">{item?.name || mat.materialId}</span>
-                                <span className="text-[10px] text-slate-400 uppercase font-medium">{isFinished ? 'Produk Jadi (Rakitan)' : 'Bahan Baku'}</span>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-bold text-slate-700">
-                                {mat.amount.toLocaleString()} <span className="text-[10px] text-slate-400 uppercase">{displayUnit}</span>
-                              </span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className={cn(
-                                "font-medium text-xs px-2 py-1 rounded bg-slate-100",
-                                item && item.stock <= item.minStock ? "text-red-600 bg-red-50" : "text-slate-600"
-                              )}>
-                                {item?.stock} {item?.unit}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
                 </div>
               </div>
             )}
@@ -823,7 +645,6 @@ export default function Production() {
         )}
       </Modal>
 
-      {/* Create WO Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -832,69 +653,39 @@ export default function Production() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-700">Produk (Mengikuti Resep/BOM)</label>
+              <label className="block text-sm font-medium text-slate-700 font-bold uppercase tracking-tight">Pilih Produk</label>
               <button
                 type="button"
-                onClick={() => {
-                  setIsNewProduct(!isNewProduct);
-                  setSelectedProductId('');
-                }}
-                className="text-xs text-emerald-600 font-medium hover:text-emerald-700"
+                onClick={() => navigate('/recipes')}
+                className="text-[10px] font-black text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full uppercase"
               >
-                {isNewProduct ? 'Kembali Pilih dari Stok' : '+ Buat Produk Baru'}
+                + Register di Master Resep
               </button>
             </div>
 
-            {isNewProduct ? (
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  required
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  placeholder="Ketik Nama Produk Baru..."
-                  value={newProductName}
-                  onChange={e => setNewProductName(e.target.value)}
-                />
-                <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={newProductCategory}
-                  onChange={e => setNewProductCategory(e.target.value as Category)}
-                >
-                  <option value="Pempek">Pempek</option>
-                  <option value="Kerupuk">Kerupuk</option>
-                </select>
-              </div>
-            ) : (
-              <div className="flex gap-2 items-center">
-                <select
-                  required
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={selectedProductId}
-                  onChange={e => setSelectedProductId(e.target.value)}
-                >
-                  <option value="">Pilih Produk</option>
-                  {finishedGoods.map(item => (
+            <div className="flex gap-2 items-center">
+              <select
+                required
+                className="flex-1 px-3 py-3 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 font-bold text-slate-900 shadow-sm"
+                value={selectedProductId}
+                onChange={e => setSelectedProductId(e.target.value)}
+              >
+                <option value="">-- Pilih Produk Ready Produksi --</option>
+                {finishedGoods.length === 0 ? (
+                  <option value="" disabled>Belum ada produk di Master Resep</option>
+                ) : (
+                  finishedGoods.map(item => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                     </option>
-                  ))}
-                </select>
-                {selectedProductId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (window.confirm('Yakin ingin menghapus produk ini secara permanen dari daftar?')) {
-                        deleteInventoryItem(selectedProductId);
-                        setSelectedProductId('');
-                      }
-                    }}
-                    className="p-2 text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-lg shrink-0 transition-colors"
-                    title="Hapus Produk dari Daftar"
-                  >
-                    <Trash2 size={20} />
-                  </button>
+                  ))
                 )}
-              </div>
+              </select>
+            </div>
+            {finishedGoods.length === 0 && (
+              <p className="text-[10px] text-amber-600 mt-2 italic font-medium">
+                ⚠️ Belum ada resep yang terdaftar. Silakan buat resep di menu Master Resep terlebih dahulu.
+              </p>
             )}
           </div>
 
@@ -971,8 +762,6 @@ export default function Production() {
                 onChange={e => setDueDate(e.target.value)}
               />
             </div>
-
-
           </div>
 
           <div className="border-t border-slate-200 mt-6 pt-6">
@@ -998,153 +787,105 @@ export default function Production() {
                       }
                     }}
                   >
-                    <option value="">-- Pilih Bahan --</option>
-                    <optgroup label="Bahan Baku & Bumbu">
-                      {inventory.filter(i => i.type === 'raw').map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} ({item.unit})
-                        </option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Produk Jadi (Bahan Rakitan)">
-                      {inventory.filter(i => i.type === 'finished').map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </optgroup>
+                    <option value="">Tambah Bahan Lainnya...</option>
+                    {rawMaterials.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
+                    ))}
                   </select>
                 </div>
-
-                <div className="flex items-end gap-2">
-                  {inventory.find(m => m.id === currentMaterialId)?.unit === 'kg' && (
-                    <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm self-center">
-                      <button
-                        type="button"
-                        onClick={() => setCurrentMaterialInputUnit('kg')}
-                        className={cn(
-                          "px-2 py-1 text-[10px] font-bold rounded transition-all",
-                          currentMaterialInputUnit === 'kg' ? "bg-emerald-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"
-                        )}
-                      >
-                        KG
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentMaterialInputUnit('pcs')}
-                        className={cn(
-                          "px-2 py-1 text-[10px] font-bold rounded transition-all",
-                          currentMaterialInputUnit === 'pcs' ? "bg-emerald-600 text-white shadow-sm" : "text-slate-400 hover:text-slate-600"
-                        )}
-                      >
-                        PCS
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="relative w-28 shrink-0">
+                <div className="w-24">
+                  <div className="relative">
                     <input
                       type="number"
-                      min="0"
                       step="any"
-                      placeholder="Jumlah"
-                      className="w-full pl-3 pr-10 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm font-bold"
+                      placeholder="Qty"
+                      className="w-full pl-3 pr-7 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm"
                       value={currentMaterialQty || ''}
                       onChange={e => setCurrentMaterialQty(Number(e.target.value))}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] uppercase font-bold text-slate-400">
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">
                       {currentMaterialInputUnit}
                     </span>
                   </div>
                 </div>
-
                 <button
                   type="button"
                   onClick={handleAddMaterial}
-                  disabled={!currentMaterialId || currentMaterialQty <= 0}
-                  className={cn(
-                    "px-4 py-2 text-white rounded-lg transition-all flex items-center justify-center shadow-sm",
-                    (!currentMaterialId || currentMaterialQty <= 0)
-                      ? "bg-slate-300 cursor-not-allowed"
-                      : "bg-emerald-600 hover:bg-emerald-700 active:scale-95"
-                  )}
+                  className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
                 >
                   <Plus size={20} />
                 </button>
               </div>
-            </div>
 
-            {
-              materialsList.length > 0 ? (
-                <div className="mt-4 border-t border-slate-100 pt-4">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1">Daftar Bahan Terpilih</p>
-                  <div className="grid grid-cols-1 gap-2">
-                    {materialsList.map((mat, idx) => {
-                      const item = inventory.find(r => r.id === mat.materialId);
-                      const matName = item?.name || 'Bahan Tidak Dikenal';
-                      const isFinished = item?.type === 'finished';
-                      const matUnit = item?.unit === 'kg' ? 'pcs' : item?.unit || '';
-
-                      return (
-                        <div key={idx} className={cn(
-                          "flex items-center justify-between p-2.5 rounded-xl border transition-all animate-in fade-in slide-in-from-left-2",
-                          isFinished ? "bg-blue-50/50 border-blue-100" : "bg-white border-slate-200"
-                        )}>
-                          <div className="flex items-center gap-3">
-                            <div className={cn(
-                              "p-1.5 rounded-lg",
-                              isFinished ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
-                            )}>
-                              {isFinished ? <Factory size={14} /> : <div className="w-3.5 h-3.5 border-2 border-current rounded-full" />}
-                            </div>
-                            <div>
-                              <p className="text-sm font-semibold text-slate-900 leading-none mb-1">{matName}</p>
-                              <p className="text-[10px] text-slate-500 uppercase font-medium">{isFinished ? 'Produk Jadi (Rakitan)' : 'Bahan Baku'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span className="text-sm font-bold text-slate-900 bg-white px-2 py-1 rounded-md border border-slate-100 shadow-sm">
-                              {mat.amount.toLocaleString()} <span className="text-[10px] text-slate-400 uppercase">{matUnit}</span>
-                            </span>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar">
+                {materialsList.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 bg-white/50 rounded-lg border border-dashed border-slate-200">
+                    <p className="text-xs">Belum ada bahan baku yang ditambahkan.</p>
+                  </div>
+                ) : (
+                  materialsList.map((m, idx) => {
+                    const item = inventory.find(i => i.id === m.materialId);
+                    return (
+                      <div key={idx} className={cn(
+                        "flex items-center justify-between p-2.5 rounded-lg border transition-all",
+                        m.isTemplate ? "bg-emerald-50/50 border-emerald-100" : "bg-white border-slate-100"
+                      )}>
+                        <div className="flex items-center gap-2">
+                          {m.isTemplate && <CheckCircle size={12} className="text-emerald-500" />}
+                          <span className="text-sm font-medium text-slate-700">{item?.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-bold text-slate-900">
+                            {m.amount} {item?.unit}
+                          </span>
+                          {!m.isTemplate && (
                             <button
                               type="button"
                               onClick={() => handleRemoveMaterial(idx)}
-                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              className="text-slate-400 hover:text-red-500 transition-colors"
                             >
-                              <Trash2 size={16} />
+                              <X size={14} />
                             </button>
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-4 p-8 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-slate-400">
-                  <Package size={32} className="opacity-20 mb-2" />
-                  <p className="text-xs font-medium italic text-center">Belum ada bahan yang ditambahkan. <br />Silakan pilih bahan di atas.</p>
-                </div>
-              )
-            }
-          </div >
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 py-2">
+            <input
+              type="checkbox"
+              id="autoComplete"
+              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              checked={autoComplete}
+              onChange={e => setAutoComplete(e.target.checked)}
+            />
+            <label htmlFor="autoComplete" className="text-sm text-slate-600 font-medium">
+              Langsung Selesaikan & Update Stok Gudang
+            </label>
+          </div>
 
           <div className="pt-4 flex gap-3">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+              className="flex-1 px-4 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-medium transition-colors"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm shadow-emerald-200"
+              className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]"
             >
-              Buat Pesanan
+              Buat Perintah Kerja
             </button>
           </div>
-        </form >
-      </Modal >
-    </div >
+        </form>
+      </Modal>
+    </div>
   );
 }

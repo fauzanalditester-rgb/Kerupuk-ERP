@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { CookingPot, Plus, Search, CheckCircle2, Factory, FileEdit, Trash2, X, PlusCircle, MinusCircle } from 'lucide-react';
+import { CookingPot, Plus, Search, CheckCircle2, Factory, FileEdit, Trash2, X, PlusCircle, MinusCircle, Package, Calendar } from 'lucide-react';
+import { cn } from '../lib/utils';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
-import { Recipe } from '../lib/types';
+import { Recipe, Category } from '../lib/types';
 
 export default function ProductionRecipes() {
-    const { recipes, inventory, addRecipe, updateRecipe, deleteRecipe } = useERP();
+    const { recipes, inventory, addRecipe, updateRecipe, deleteRecipe, addInventoryItem } = useERP();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null);
@@ -13,14 +14,43 @@ export default function ProductionRecipes() {
     // Search
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Form State
+    // Form State (Aligned with Production.tsx)
     const [productId, setProductId] = useState('');
-    const [ingredients, setIngredients] = useState<{ materialId: string; amount: number }[]>([]);
+    const [batchCount, setBatchCount] = useState(1);
+    const [yieldPerBatch, setYieldPerBatch] = useState(2.3);
+    const [yieldUnit, setYieldUnit] = useState<'kg' | 'pcs'>('kg');
 
-    // Get only finished goods for recipe creation target (Or anything not raw)
+    const [materialsList, setMaterialsList] = useState<{ materialId: string; amount: number }[]>([]);
+    const [currentMaterialId, setCurrentMaterialId] = useState('');
+    const [currentMaterialQty, setCurrentMaterialQty] = useState(0);
+    const [currentMaterialInputUnit, setCurrentMaterialInputUnit] = useState<'kg' | 'pcs'>('kg');
+
+    // Get only finished goods for recipe creation target
     const finishedGoods = inventory.filter(item => item.type === 'finished' || item.category === 'Pempek' || item.category === 'Kerupuk');
     // Get raw materials for ingredients
     const rawMaterials = inventory.filter(item => item.type === 'raw' || item.category === 'Bahan Baku' || item.category === 'Bumbu');
+
+    // New Product Form State
+    const [isNewProduct, setIsNewProduct] = useState(false);
+    const [newProductName, setNewProductName] = useState('');
+    const [newProductCategory, setNewProductCategory] = useState<Category>('Pempek');
+    const [newProductUnit, setNewProductUnit] = useState<'kg' | 'pcs' | 'bks'>('kg');
+
+    const totalInProductUnit = useMemo(() => {
+        const totalRaw = batchCount * yieldPerBatch;
+        const targetId = isNewProduct ? 'TEMP' : productId;
+        const product = inventory.find(i => i.id === targetId);
+
+        // For new product, guess unit based on category if not selected
+        const pUnit = product ? product.unit.toLowerCase() : (newProductCategory === 'Kerupuk' ? 'bks' : 'kg');
+        const yUnit = yieldUnit.toLowerCase();
+
+        if (pUnit === yUnit) return totalRaw;
+        // Logic: 1kg = 32pcs/bks
+        if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) return totalRaw / 32;
+        if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') return totalRaw * 32;
+        return totalRaw;
+    }, [batchCount, yieldPerBatch, yieldUnit, inventory, productId, isNewProduct, newProductCategory]);
 
     const filteredRecipes = useMemo(() => {
         let list = [...recipes];
@@ -38,7 +68,13 @@ export default function ProductionRecipes() {
     const handleAddNew = () => {
         setEditingRecipe(null);
         setProductId('');
-        setIngredients([{ materialId: '', amount: 0 }]); // Start with 1 empty ingredient
+        setBatchCount(1);
+        setYieldPerBatch(2.3);
+        setYieldUnit('kg');
+        setIsNewProduct(false);
+        setNewProductName('');
+        setNewProductCategory('Pempek');
+        setMaterialsList([]);
         setIsModalOpen(true);
     };
 
@@ -46,8 +82,16 @@ export default function ProductionRecipes() {
     const handleEdit = (recipe: Recipe) => {
         setEditingRecipe(recipe);
         setProductId(recipe.productId);
-        // clone ingredients array so we don't accidentally mutate state directly
-        setIngredients(recipe.ingredients.map(ing => ({ ...ing })));
+        // We set batch to 1 and yield to 1 so the user defines per 1 unit if they want, 
+        // but better yet, we just load original items.
+        setBatchCount(1);
+        setYieldPerBatch(1);
+
+        const product = inventory.find(i => i.id === recipe.productId);
+        setYieldUnit(product?.unit as any || 'kg');
+
+        setMaterialsList(recipe.ingredients.map(ing => ({ ...ing })));
+        setIsNewProduct(false);
         setIsModalOpen(true);
     };
 
@@ -57,69 +101,104 @@ export default function ProductionRecipes() {
         }
     };
 
+    const handleAddMaterial = () => {
+        if (currentMaterialId && currentMaterialQty > 0) {
+            const item = inventory.find(i => i.id === currentMaterialId);
+            const isKgItem = item?.unit === 'kg';
+            const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
+                ? Number((currentMaterialQty / 32).toFixed(5))
+                : currentMaterialQty;
+
+            setMaterialsList([...materialsList, { materialId: currentMaterialId, amount: finalAmount }]);
+            setCurrentMaterialId('');
+            setCurrentMaterialQty(0);
+        }
+    };
+
+    const removeMaterial = (index: number) => {
+        const newList = [...materialsList];
+        newList.splice(index, 1);
+        setMaterialsList(newList);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
 
-        // Validasi
-        if (!productId) {
+        if (!isNewProduct && !productId) {
             alert('Pilih produk yang akan dibuat.');
             return;
         }
 
-        const validIngredients = ingredients.filter(ing => ing.materialId && ing.amount > 0);
-        if (validIngredients.length === 0) {
-            alert('Resep harus memiliki setidaknya satu bahan baku yang valid (> 0)');
+        const finalMaterials = [...materialsList];
+        if (currentMaterialId && currentMaterialQty > 0) {
+            const item = inventory.find(i => i.id === currentMaterialId);
+            const isKgItem = item?.unit === 'kg';
+            const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
+                ? Number((currentMaterialQty / 32).toFixed(5))
+                : currentMaterialQty;
+            finalMaterials.push({ materialId: currentMaterialId, amount: finalAmount });
+        }
+
+        if (finalMaterials.length === 0) {
+            alert('Resep harus memiliki setidaknya satu bahan baku.');
             return;
         }
 
-        const selectedProduct = inventory.find(i => i.id === productId);
-        if (!selectedProduct) return;
+        let finalProductId = productId;
+        let finalProductName = '';
+
+        if (isNewProduct) {
+            const newId = `FG-${Date.now()}`;
+            const newItem = {
+                id: newId,
+                name: newProductName,
+                category: newProductCategory,
+                stock: 0,
+                unit: (newProductCategory === 'Kerupuk' ? 'bks' : 'kg') as any,
+                minStock: 10,
+                price: 0,
+                type: 'finished' as const,
+                createdAt: new Date().toISOString()
+            };
+            addInventoryItem(newItem);
+            finalProductId = newId;
+            finalProductName = newProductName;
+        } else {
+            const selectedProduct = inventory.find(i => i.id === productId);
+            if (!selectedProduct) return;
+            finalProductName = selectedProduct.name;
+        }
+
+        // Normalize ingredients to "Per 1 Unit"
+        const normalizedIngredients = finalMaterials.map(m => ({
+            materialId: m.materialId,
+            amount: Number((m.amount / totalInProductUnit).toFixed(6))
+        }));
 
         if (editingRecipe) {
-            // UPDATE
-            const newRecipeData: Recipe = {
+            updateRecipe(editingRecipe.id, {
                 ...editingRecipe,
-                productId,
-                productName: selectedProduct.name,
-                ingredients: validIngredients
-            };
-            updateRecipe(editingRecipe.id, newRecipeData);
+                productId: finalProductId,
+                productName: finalProductName,
+                ingredients: normalizedIngredients
+            });
         } else {
-            // CREATE
-            const newRecipeData: Recipe = {
+            addRecipe({
                 id: `RCP-${Date.now()}`,
-                productId,
-                productName: selectedProduct.name,
-                ingredients: validIngredients
-            };
-            addRecipe(newRecipeData);
+                productId: finalProductId,
+                productName: finalProductName,
+                ingredients: normalizedIngredients
+            });
         }
 
         setIsModalOpen(false);
     };
 
-    const addIngredientRow = () => {
-        setIngredients([...ingredients, { materialId: '', amount: 0 }]);
-    };
-
-    const removeIngredientRow = (index: number) => {
-        const newIngredients = [...ingredients];
-        newIngredients.splice(index, 1);
-        setIngredients(newIngredients);
-    };
-
-    const updateIngredientRow = (index: number, field: 'materialId' | 'amount', value: any) => {
-        const newIngredients = [...ingredients];
-        newIngredients[index] = { ...newIngredients[index], [field]: value };
-        setIngredients(newIngredients);
-    };
-
-    // Hitung total HPP (Harga Pokok Penjualan) alias biaya modal bahan baku per pcs/resep
     const calculateCostPerRecipe = (recipe: Recipe) => {
         return recipe.ingredients.reduce((total, ing) => {
             const material = inventory.find(i => i.id === ing.materialId);
             if (material) {
-                return total + Math.round(material.price * ing.amount); // harga per unit * jumlah unit dipakai, dibulatkan ke Rupiah terdekat
+                return total + Math.round(material.price * ing.amount);
             }
             return total;
         }, 0);
@@ -162,9 +241,6 @@ export default function ProductionRecipes() {
                             </button>
                         )}
                     </div>
-                    <div className="text-sm text-slate-500 font-medium">
-                        Total: {filteredRecipes.length} Resep
-                    </div>
                 </div>
             </div>
 
@@ -172,7 +248,6 @@ export default function ProductionRecipes() {
                 <div className="bg-white rounded-xl border border-dashed border-slate-300 py-12 flex flex-col items-center justify-center text-slate-400">
                     <CookingPot size={48} className="mb-4 opacity-20" />
                     <p className="font-medium text-slate-500">Belum ada resep, atau pencarian tidak cocok.</p>
-                    <p className="text-sm mt-1">Buat resep baru agar Anda bisa memulai proses Produksi.</p>
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -185,15 +260,13 @@ export default function ProductionRecipes() {
                                 <div className="p-4 border-b border-slate-100 flex justify-between items-start bg-slate-50/30 group-hover:bg-emerald-50/30 transition-colors">
                                     <div>
                                         <h3 className="font-bold text-slate-900 text-lg mb-0.5">{recipe.productName}</h3>
-                                        <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1 uppercase tracking-wider">
-                                            ID: {recipe.id}
-                                        </p>
+                                        <p className="text-[10px] text-slate-400 font-mono uppercase tracking-wider">ID: {recipe.id}</p>
                                     </div>
                                     <div className="flex gap-1.5">
-                                        <button onClick={() => handleEdit(recipe)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Resep">
+                                        <button onClick={() => handleEdit(recipe)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
                                             <FileEdit size={16} />
                                         </button>
-                                        <button onClick={() => handleDelete(recipe.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus Resep">
+                                        <button onClick={() => handleDelete(recipe.id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
                                             <Trash2 size={16} />
                                         </button>
                                     </div>
@@ -201,8 +274,8 @@ export default function ProductionRecipes() {
 
                                 <div className="p-4 flex-1">
                                     <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                                        <span>KOMPOSISI BAHAN</span>
-                                        <span title="Bahan yang dibutuhkan untuk membuat 1 unit produk">PER {targetProduct?.unit || 'UNIT'}</span>
+                                        <span>KOMPOSISI BAHAN Baku</span>
+                                        <span>PER {targetProduct?.unit || 'UNIT'}</span>
                                     </div>
 
                                     <ul className="space-y-1.5">
@@ -210,10 +283,8 @@ export default function ProductionRecipes() {
                                             const mat = getMaterialDetails(ing.materialId);
                                             return (
                                                 <li key={idx} className="flex justify-between items-center text-sm p-2 rounded-lg bg-slate-50/50 border border-transparent hover:border-slate-100 transition-colors">
-                                                    <span className="text-slate-700 font-medium">
-                                                        {mat ? mat.name : <span className="text-red-500 italic">Bahan dihapus</span>}
-                                                    </span>
-                                                    <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100 shadow-sm text-xs">
+                                                    <span className="text-slate-700 font-medium">{mat ? mat.name : 'Bahan dihapus'}</span>
+                                                    <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100 text-xs">
                                                         {ing.amount} {mat?.unit}
                                                     </span>
                                                 </li>
@@ -232,112 +303,192 @@ export default function ProductionRecipes() {
                 </div>
             )}
 
-            {/* Modal Buat/Edit Resep */}
+            {/* Modal aligned with Production.tsx Create WO */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 title={editingRecipe ? "Ubah Resep (BOM)" : "Buat Resep Baru (BOM)"}
             >
-                <form onSubmit={handleSubmit} className="space-y-5">
-
-                    {/* Step 1: Pilih Produk yg mau diproduksi */}
-                    <div className="bg-emerald-50/50 p-4 border border-emerald-100 rounded-lg">
-                        <label className="block text-sm font-semibold text-emerald-800 mb-2">1. Pilih Produk (Hasil Produksi)</label>
-                        <select
-                            required
-                            className="w-full px-3 py-2 border border-emerald-200 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium text-slate-900"
-                            value={productId}
-                            onChange={e => setProductId(e.target.value)}
-                        >
-                            <option value="">-- Pilih Barang Jadi --</option>
-                            {finishedGoods.map(goods => (
-                                <option key={goods.id} value={goods.id}>
-                                    {goods.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="border-t border-slate-200 my-4" />
-
-                    {/* Step 2: Racik Komposisi */}
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Step 1: Same as Production.tsx */}
                     <div>
-                        <div className="flex justify-between items-center mb-3">
-                            <label className="block text-sm font-semibold text-slate-800">2. Tentukan Komposisi Bahan Baku</label>
-                            <button
-                                type="button"
-                                onClick={addIngredientRow}
-                                className="text-xs text-blue-600 font-medium hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded transition-colors"
-                            >
-                                <PlusCircle size={14} /> Tambah Bahan
-                            </button>
+                        <div className="flex justify-between items-center mb-1">
+                            <label className="block text-sm font-medium text-slate-700 font-bold uppercase tracking-tight">Pilih Produk</label>
+                            {!editingRecipe && (
+                                <button
+                                    type="button"
+                                    onClick={() => { setIsNewProduct(!isNewProduct); setProductId(''); }}
+                                    className="text-xs text-emerald-600 font-medium hover:text-emerald-700"
+                                >
+                                    {isNewProduct ? 'Kembali Pilih dari Stok' : '+ Buat Produk Baru'}
+                                </button>
+                            )}
                         </div>
 
-                        <div className="space-y-3">
-                            {ingredients.map((ing, index) => (
-                                <div key={index} className="flex gap-2 items-start relative group">
-                                    <div className="flex-1">
-                                        <select
-                                            required
-                                            className="w-full px-3 py-2 border border-slate-300 bg-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                            value={ing.materialId}
-                                            onChange={e => updateIngredientRow(index, 'materialId', e.target.value)}
-                                        >
-                                            <option value="">Pilih Komposisi Bahan...</option>
-                                            {rawMaterials.map(raw => (
-                                                <option key={raw.id} value={raw.id} disabled={ingredients.some((i, idx) => i.materialId === raw.id && idx !== index)}>
-                                                    {raw.name} (Tersedia: {raw.stock} {raw.unit})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
+                        {isNewProduct && !editingRecipe ? (
+                            <div className="grid grid-cols-2 gap-2">
+                                <input
+                                    type="text"
+                                    required
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    placeholder="Ketik Nama Produk Baru..."
+                                    value={newProductName}
+                                    onChange={e => setNewProductName(e.target.value)}
+                                />
+                                <select
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={newProductCategory}
+                                    onChange={e => setNewProductCategory(e.target.value as Category)}
+                                >
+                                    <option value="Pempek">Pempek</option>
+                                    <option value="Kerupuk">Kerupuk</option>
+                                </select>
+                            </div>
+                        ) : (
+                            <select
+                                required
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                value={productId}
+                                onChange={e => setProductId(e.target.value)}
+                                disabled={!!editingRecipe}
+                            >
+                                <option value="">Pilih Produk</option>
+                                {finishedGoods.map(goods => (
+                                    <option key={goods.id} value={goods.id}>{goods.name}</option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
 
-                                    <div className="w-1/3 min-w-[100px]">
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                required
-                                                min="0"
-                                                step="0.01" // allow decimals like 0.1kg
-                                                className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                                                value={ing.amount || ''}
-                                                onChange={e => updateIngredientRow(index, 'amount', Number(e.target.value))}
-                                                placeholder="Jumlah"
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 font-medium pointer-events-none">
-                                                {ing.materialId ? getMaterialDetails(ing.materialId)?.unit : ''}
-                                            </span>
-                                        </div>
-                                    </div>
-
+                    {/* Step 2: Batch & Yield (Copied from Production.tsx) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">Dibuat untuk Berapa Batch?</label>
+                            <input
+                                type="number"
+                                required
+                                min="1"
+                                step="any"
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                value={batchCount || ''}
+                                onChange={e => setBatchCount(Number(e.target.value))}
+                            />
+                        </div>
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-slate-700">Hasil Jadi per 1 Batch</label>
+                                <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
                                     <button
                                         type="button"
-                                        onClick={() => removeIngredientRow(index)}
-                                        disabled={ingredients.length === 1}
-                                        className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors mt-0.5 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-300"
-                                        title="Hapus Bahan ini"
-                                    >
-                                        <MinusCircle size={20} />
-                                    </button>
+                                        onClick={() => setYieldUnit('kg')}
+                                        className={cn("px-2 py-0.5 text-[10px] font-bold rounded", yieldUnit === 'kg' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400")}
+                                    >KG</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setYieldUnit('pcs')}
+                                        className={cn("px-2 py-0.5 text-[10px] font-bold rounded", yieldUnit === 'pcs' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400")}
+                                    >PCS</button>
                                 </div>
-                            ))}
+                            </div>
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    step="any"
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={yieldPerBatch || ''}
+                                    onChange={e => setYieldPerBatch(Number(e.target.value))}
+                                />
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">{yieldUnit}</span>
+                            </div>
+                        </div>
+                        <div className="col-span-2">
+                            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center text-sm shadow-sm">
+                                <span className="font-semibold text-emerald-800">Total Produksi yang Didefinisikan:</span>
+                                <div className="text-right">
+                                    <span className="text-xl font-bold text-emerald-600 mr-2">{(batchCount * yieldPerBatch).toFixed(2)} {yieldUnit}</span>
+                                </div>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-1 italic">* Sistem akan otomatis menghitung rasio bahan baku "Per Unit" dari data di atas.</p>
                         </div>
                     </div>
 
-                    <div className="pt-6 flex gap-3 border-t border-slate-100">
-                        <button
-                            type="button"
-                            onClick={() => setIsModalOpen(false)}
-                            className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
-                        >
-                            Batal
-                        </button>
-                        <button
-                            type="submit"
-                            className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm shadow-emerald-200 transition-colors flex justify-center items-center gap-2"
-                        >
-                            <CheckCircle2 size={18} />
-                            {editingRecipe ? 'Simpan Perubahan Resep' : 'Simpan Resep Baru'}
+                    {/* Step 3: Raw Materials (Copied from Production.tsx) */}
+                    <div className="border-t border-slate-200 mt-4 pt-4">
+                        <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
+                            <Package size={16} className="text-emerald-500" />
+                            Racik Komposisi Bahan Baku
+                        </h3>
+
+                        <div className="bg-slate-50 border border-slate-200 p-3 rounded-xl space-y-3 shadow-inner">
+                            <div className="flex gap-3">
+                                <div className="flex-1">
+                                    <select
+                                        className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm"
+                                        value={currentMaterialId}
+                                        onChange={e => {
+                                            const id = e.target.value;
+                                            setCurrentMaterialId(id);
+                                            const item = inventory.find(i => i.id === id);
+                                            setCurrentMaterialInputUnit(item?.unit === 'kg' ? 'kg' : 'pcs');
+                                        }}
+                                    >
+                                        <option value="">Tambah Bahan...</option>
+                                        {rawMaterials.map(item => (
+                                            <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="w-24">
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            step="any"
+                                            placeholder="Qty"
+                                            className="w-full pl-3 pr-7 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm"
+                                            value={currentMaterialQty || ''}
+                                            onChange={e => setCurrentMaterialQty(Number(e.target.value))}
+                                        />
+                                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">{currentMaterialInputUnit}</span>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleAddMaterial}
+                                    className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                                >
+                                    <Plus size={20} />
+                                </button>
+                            </div>
+
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                {materialsList.length === 0 ? (
+                                    <div className="text-center py-6 text-slate-400 bg-white/50 rounded-lg border border-dashed border-slate-200">
+                                        <p className="text-xs">Belum ada bahan baku yang ditambahkan.</p>
+                                    </div>
+                                ) : (
+                                    materialsList.map((m, idx) => {
+                                        const item = inventory.find(i => i.id === m.materialId);
+                                        return (
+                                            <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border bg-white border-slate-100 transition-all">
+                                                <span className="text-sm font-medium text-slate-700">{item?.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-bold text-slate-900">{m.amount} {item?.unit}</span>
+                                                    <button type="button" onClick={() => removeMaterial(idx)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 flex gap-3 border-t border-slate-100">
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-2 border border-slate-300 rounded-lg font-medium">Batal</button>
+                        <button type="submit" className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold shadow-lg shadow-emerald-100">
+                            {editingRecipe ? 'Simpan Perubahan' : 'Simpan Resep Baru'}
                         </button>
                     </div>
                 </form>

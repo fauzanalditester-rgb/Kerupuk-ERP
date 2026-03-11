@@ -40,6 +40,7 @@ interface ERPContextType {
   addRecipe: (recipe: Recipe) => void;
   updateRecipe: (id: string, updatedRecipe: Recipe) => void;
   deleteRecipe: (id: string) => void;
+  deleteWorkOrder: (id: string) => void;
 
   // Stats
   totalRevenue: number;
@@ -224,6 +225,26 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ));
   }, [workOrders, updateInventoryStock]);
 
+  const deleteWorkOrder = useCallback((id: string) => {
+    const wo = workOrders.find(w => w.id === id);
+    if (!wo) return;
+
+    // If order was completed, revert the stock changes
+    if (wo.status === 'Completed') {
+      const reversalDate = formatDateWithTime();
+
+      // Revert finished goods (deduct)
+      updateInventoryStock(wo.productId, -wo.quantity, 'Out', `Penghapusan WO ${wo.id} (Reversal)`, wo.id, reversalDate);
+
+      // Revert raw materials (restore)
+      wo.materialsUsed.forEach(mat => {
+        updateInventoryStock(mat.materialId, mat.amount, 'In', `Penghapusan WO ${wo.id} (Reversal Material)`, wo.id, reversalDate);
+      });
+    }
+
+    setWorkOrders(prev => prev.filter(w => w.id !== id));
+  }, [workOrders, updateInventoryStock]);
+
   const createSalesOrder = useCallback((so: SalesOrder) => {
     setSalesOrders(prev => [so, ...prev]);
 
@@ -356,6 +377,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addRecipe,
     updateRecipe,
     deleteRecipe,
+    deleteWorkOrder,
     totalRevenue,
     totalExpenses,
     netProfit,
@@ -367,7 +389,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adjustStock, createWorkOrder, completeWorkOrder, createSalesOrder,
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
-    updateRecipe, deleteRecipe, totalRevenue, totalExpenses,
+    updateRecipe, deleteRecipe, deleteWorkOrder, totalRevenue, totalExpenses,
     netProfit, lowStockItems
   ]);
 

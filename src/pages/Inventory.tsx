@@ -447,7 +447,6 @@ export default function Inventory() {
                       <th className="px-6 py-4">
                         <span className="flex items-center gap-1">Stok Unit</span>
                       </th>
-                      <th className="px-6 py-4">Status</th>
                     </>
                   )}
                   <th className="px-6 py-4 text-center">Status</th>
@@ -513,16 +512,6 @@ export default function Inventory() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-6 py-4">
-                              <span className={cn(
-                                "px-2.5 py-1 rounded-full text-xs font-medium border",
-                                !isLowStock
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                  : "bg-red-50 text-red-700 border-red-100"
-                              )}>
-                                {isLowStock ? 'Stok Rendah' : 'Baik'}
-                              </span>
-                            </td>
                           </>
                         )}
                         <td className="px-6 py-4 text-center">
@@ -536,18 +525,7 @@ export default function Inventory() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedItem(item);
-                                setUsageUnit(item.unit);
-                                setUsageAmount('');
-                                setIsUsageModalOpen(true);
-                              }}
-                              className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[11px] font-bold hover:bg-amber-100 transition-colors border border-amber-200"
-                            >
-                              Catat Pakai
-                            </button>
+                          <div className="flex items-center justify-center">
                             <button
                               onClick={() => {
                                 setSelectedItem(item);

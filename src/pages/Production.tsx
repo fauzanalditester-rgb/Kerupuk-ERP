@@ -23,7 +23,7 @@ import { WorkOrder, Category } from '../lib/types';
 import { useNavigate } from 'react-router-dom';
 
 export default function Production() {
-  const { workOrders, completeWorkOrder, createWorkOrder, inventory, recipes, addInventoryItem, deleteInventoryItem, addRecipe, updateRecipe } = useERP();
+  const { workOrders, completeWorkOrder, createWorkOrder, deleteWorkOrder, inventory, recipes, addInventoryItem, deleteInventoryItem, addRecipe, updateRecipe } = useERP();
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -572,6 +572,17 @@ export default function Production() {
                         Selesaikan Pesanan
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        if (confirm('Apakah Anda yakin ingin menghapus perintah kerja ini? Jika status pesanan Selesai, maka stok barang akan otomatis dikembalikan (bahan baku masuk kembali, produk jadi berkurang).')) {
+                          deleteWorkOrder(wo.id);
+                        }
+                      }}
+                      className="text-sm text-red-600 hover:text-red-700 font-medium px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1.5"
+                    >
+                      <Trash2 size={15} />
+                      Hapus
+                    </button>
                   </div>
                 </div>
               ))

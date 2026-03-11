@@ -89,26 +89,26 @@ const loadState = <T,>(key: string, fallback: T): T => {
 };
 
 export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => loadState('erp_v5_inventory', initialInventory));
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => loadState('erp_v5_workOrders', initialWorkOrders));
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => loadState('erp_v5_salesOrders', initialSalesOrders));
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState('erp_v5_purchaseOrders', initialPurchaseOrders));
-  const [transactions, setTransactions] = useState<Transaction[]>(() => loadState('erp_v5_transactions', initialTransactions));
-  const [customers, setCustomers] = useState<Customer[]>(() => loadState('erp_v5_customers', initialCustomers));
-  const [employees, setEmployees] = useState<Employee[]>(() => loadState('erp_v5_employees', initialEmployees));
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => loadState('erp_v5_stockMovements', initialStockMovements));
-  const [recipes, setRecipes] = useState<Recipe[]>(() => loadState('erp_v5_recipes', initialRecipes));
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => loadState('erp_v6_inventory', initialInventory));
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => loadState('erp_v6_workOrders', initialWorkOrders));
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => loadState('erp_v6_salesOrders', initialSalesOrders));
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState('erp_v6_purchaseOrders', initialPurchaseOrders));
+  const [transactions, setTransactions] = useState<Transaction[]>(() => loadState('erp_v6_transactions', initialTransactions));
+  const [customers, setCustomers] = useState<Customer[]>(() => loadState('erp_v6_customers', initialCustomers));
+  const [employees, setEmployees] = useState<Employee[]>(() => loadState('erp_v6_employees', initialEmployees));
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => loadState('erp_v6_stockMovements', initialStockMovements));
+  const [recipes, setRecipes] = useState<Recipe[]>(() => loadState('erp_v6_recipes', initialRecipes));
 
   // Persist to localStorage whenever state changes
-  useEffect(() => { localStorage.setItem('erp_v5_inventory', JSON.stringify(inventory)); }, [inventory]);
-  useEffect(() => { localStorage.setItem('erp_v5_workOrders', JSON.stringify(workOrders)); }, [workOrders]);
-  useEffect(() => { localStorage.setItem('erp_v5_salesOrders', JSON.stringify(salesOrders)); }, [salesOrders]);
-  useEffect(() => { localStorage.setItem('erp_v5_purchaseOrders', JSON.stringify(purchaseOrders)); }, [purchaseOrders]);
-  useEffect(() => { localStorage.setItem('erp_v5_transactions', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('erp_v5_customers', JSON.stringify(customers)); }, [customers]);
-  useEffect(() => { localStorage.setItem('erp_v5_employees', JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem('erp_v5_stockMovements', JSON.stringify(stockMovements)); }, [stockMovements]);
-  useEffect(() => { localStorage.setItem('erp_v5_recipes', JSON.stringify(recipes)); }, [recipes]);
+  useEffect(() => { localStorage.setItem('erp_v6_inventory', JSON.stringify(inventory)); }, [inventory]);
+  useEffect(() => { localStorage.setItem('erp_v6_workOrders', JSON.stringify(workOrders)); }, [workOrders]);
+  useEffect(() => { localStorage.setItem('erp_v6_salesOrders', JSON.stringify(salesOrders)); }, [salesOrders]);
+  useEffect(() => { localStorage.setItem('erp_v6_purchaseOrders', JSON.stringify(purchaseOrders)); }, [purchaseOrders]);
+  useEffect(() => { localStorage.setItem('erp_v6_transactions', JSON.stringify(transactions)); }, [transactions]);
+  useEffect(() => { localStorage.setItem('erp_v6_customers', JSON.stringify(customers)); }, [customers]);
+  useEffect(() => { localStorage.setItem('erp_v6_employees', JSON.stringify(employees)); }, [employees]);
+  useEffect(() => { localStorage.setItem('erp_v6_stockMovements', JSON.stringify(stockMovements)); }, [stockMovements]);
+  useEffect(() => { localStorage.setItem('erp_v6_recipes', JSON.stringify(recipes)); }, [recipes]);
 
   // Derived Stats
   const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Income').reduce((acc, t) => acc + t.amount, 0), [transactions]);

@@ -168,9 +168,20 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       // Use a robust duplicate check: check referenceId + type + itemId
+      // If refId is not provided (manual), check for identical movement within the same minute
       setTimeout(() => {
         setStockMovements(prevMovements => {
-          if (refId && prevMovements.some(m => m.referenceId === refId && m.type === type && m.itemId === id)) {
+          const isDuplicate = refId
+            ? prevMovements.some(m => m.referenceId === refId && m.type === type && m.itemId === id)
+            : prevMovements.some(m =>
+              m.itemId === id &&
+              m.type === type &&
+              m.reason === reason &&
+              m.date === finalDate &&
+              Math.abs(m.amount - Math.abs(amount)) < 0.00001
+            );
+
+          if (isDuplicate) {
             return prevMovements;
           }
           return [movement, ...prevMovements];

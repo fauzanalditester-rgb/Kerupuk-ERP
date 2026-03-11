@@ -17,11 +17,16 @@ import Modal from '../components/Modal';
 import { InventoryItem, Category, Unit, StockMovement } from '../lib/types';
 
 export default function Inventory() {
-  const [activeTab, setActiveTab] = useState<'raw' | 'finished'>('raw');
-  const { inventory, addInventoryItem, stockMovements, updateInventoryStock } = useERP();
+  const [activeTab, setActiveTab] = useState<'raw' | 'finished' | 'supply'>('raw');
+  const { inventory, addInventoryItem, stockMovements, updateInventoryStock, addTransaction } = useERP();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [usageAmount, setUsageAmount] = useState<number | string>('');
+  const [usageReason, setUsageReason] = useState<string>('Pemakaian Operasional');
+  const [selectedUsageItemId, setSelectedUsageItemId] = useState<string>('');
+  const [usageUnit, setUsageUnit] = useState<Unit>('kg');
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -30,6 +35,7 @@ export default function Inventory() {
   const [filterDate, setFilterDate] = useState('');
   const [sortBy, setSortBy] = useState<'category' | 'name' | 'stock' | 'price' | 'value' | 'id'>('id');
   const [sortAsc, setSortAsc] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'raw' | 'finished'>('all');
 
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
     category: 'Bahan Baku',
@@ -39,7 +45,13 @@ export default function Inventory() {
 
   const rawMaterials = useMemo(() => inventory.filter(item => item.type === 'raw' || !item.type), [inventory]);
   const finishedGoods = useMemo(() => inventory.filter(item => item.type === 'finished'), [inventory]);
-  const baseItems = useMemo(() => activeTab === 'raw' ? rawMaterials : finishedGoods, [activeTab, rawMaterials, finishedGoods]);
+  const supplyItems = useMemo(() => inventory.filter(item => item.type === 'supply'), [inventory]);
+
+  const baseItems = useMemo(() => {
+    if (activeTab === 'raw') return rawMaterials;
+    if (activeTab === 'finished') return finishedGoods;
+    return [...rawMaterials, ...finishedGoods];
+  }, [activeTab, rawMaterials, finishedGoods]);
 
   // Get unique categories for filter
   const categories = useMemo(() => {
@@ -94,12 +106,45 @@ export default function Inventory() {
   const totalValue = useMemo(() => currentItems.reduce((acc, item) => acc + (item.stock * item.price), 0), [currentItems]);
   const lowStockCount = useMemo(() => currentItems.filter(i => i.stock <= i.minStock).length, [currentItems]);
 
+  const filteredMovements = useMemo(() => {
+    return stockMovements
+      .filter(m => {
+        const item = inventory.find(i => i.id === m.itemId);
+        const isTargetType = item && (item.type === 'raw' || item.type === 'finished');
+        if (!isTargetType) return false;
+
+        // Filter by specific type if not 'all'
+        if (filterType !== 'all' && item.type !== filterType) return false;
+
+        const matchesSearch = m.itemName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          m.reason.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesDate = !filterDate || m.date.startsWith(filterDate);
+
+        return matchesSearch && matchesDate;
+      })
+      .sort((a, b) => b.id.localeCompare(a.id));
+  }, [stockMovements, inventory, searchQuery, filterDate, filterType]);
+
   const handleSort = (field: 'category' | 'name' | 'stock' | 'price' | 'value') => {
     if (sortBy === field) {
       setSortAsc(!sortAsc);
     } else {
       setSortBy(field);
       setSortAsc(true);
+    }
+  };
+
+  const handleSubmitUsage = (e: React.FormEvent) => {
+    e.preventDefault();
+    const itemId = selectedItem?.id || selectedUsageItemId;
+    const amount = Number(usageAmount);
+    if (itemId && amount > 0) {
+      updateInventoryStock(itemId, -Math.abs(amount), 'Out', usageReason);
+
+      setIsUsageModalOpen(false);
+      setUsageAmount('');
+      setUsageReason('Pemakaian Operasional');
+      setSelectedUsageItemId('');
     }
   };
 
@@ -110,7 +155,7 @@ export default function Inventory() {
         id: Date.now().toString(),
         name: newItem.name,
         category: newItem.category as Category,
-        stock: 0,
+        stock: Number(newItem.stock || 0),
         unit: newItem.unit as Unit,
         minStock: Number(newItem.minStock || 0),
         price: Number(newItem.price),
@@ -118,7 +163,11 @@ export default function Inventory() {
         createdAt: new Date().toISOString().split('T')[0]
       });
       setIsModalOpen(false);
-      setNewItem({ category: 'Bahan Baku', unit: 'kg', type: activeTab });
+      setNewItem({
+        category: activeTab === 'raw' ? 'Bahan Baku' : activeTab === 'finished' ? 'Barang Jadi' : 'Operasional',
+        unit: activeTab === 'supply' ? 'tabung' : 'kg',
+        type: activeTab
+      });
     }
   };
 
@@ -163,9 +212,24 @@ export default function Inventory() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Manajemen Inventaris</h1>
-          <p className="text-slate-500 mt-1">Pantau stok bahan baku dan barang jadi.</p>
+          <p className="text-slate-500 mt-1">Pantau stok bahan baku, barang jadi, dan alat operasional .</p>
         </div>
         <div className="flex gap-2">
+          {activeTab === 'supply' && (
+            <button
+              onClick={() => {
+                setSelectedItem(null);
+                setUsageAmount('');
+                setUsageUnit('kg');
+                setUsageReason('');
+                setIsUsageModalOpen(true);
+              }}
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg flex items-center gap-2 hover:bg-amber-600 transition-colors shadow-sm font-bold"
+            >
+              <ArrowDownRight size={18} />
+              Catat Pengeluaran
+            </button>
+          )}
           <div className="relative">
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -239,6 +303,18 @@ export default function Inventory() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-t-full" />
             )}
           </button>
+          <button
+            onClick={() => { setActiveTab('supply'); setSearchQuery(''); setFilterCategory('all'); setFilterDate(''); }}
+            className={cn(
+              "pb-3 text-sm font-medium transition-colors relative",
+              activeTab === 'supply' ? "text-emerald-600" : "text-slate-500 hover:text-slate-700"
+            )}
+          >
+            Pengeluaran Stok
+            {activeTab === 'supply' && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-t-full" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -280,205 +356,360 @@ export default function Inventory() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 flex-1 max-w-2xl">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Cari nama barang..."
-                className="pl-10 pr-10 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X size={16} />
-                </button>
-              )}
+      {activeTab !== 'supply' && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-4 border-b border-slate-200 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-1 max-w-2xl">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Cari nama barang..."
+                  className="pl-10 pr-10 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+              <div className="relative w-44">
+                <input
+                  type="date"
+                  className="px-3 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm text-slate-600"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                  title="Filter Berdasarkan Tanggal Input"
+                />
+                {filterDate && (
+                  <button
+                    onClick={() => setFilterDate('')}
+                    className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="relative w-44">
-              <input
-                type="date"
-                className="px-3 py-2 w-full border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-sm text-slate-600"
-                value={filterDate}
-                onChange={e => setFilterDate(e.target.value)}
-                title="Filter Berdasarkan Tanggal Input"
-              />
-              {filterDate && (
-                <button
-                  onClick={() => setFilterDate('')}
-                  className="absolute right-8 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X size={14} />
-                </button>
-              )}
-            </div>
+            <button
+              onClick={handleExportCSV}
+              className="px-3 py-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 text-sm"
+              title="Export CSV"
+            >
+              <Download size={18} />
+              Export
+            </button>
           </div>
-          <button
-            onClick={handleExportCSV}
-            className="px-3 py-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2 text-sm"
-            title="Export CSV"
-          >
-            <Download size={18} />
-            Export
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">
-                  <button onClick={() => handleSort('category')} className="flex items-center gap-1 hover:text-slate-700">
-                    Kategori
-                  </button>
-                </th>
-                <th className="px-6 py-4">
-                  <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-slate-700">
-                    Nama Barang
-                    <ArrowUpDown size={14} className={sortBy === 'name' ? 'text-emerald-600' : 'opacity-30'} />
-                  </button>
-                </th>
-                <th className="px-6 py-4">
-                  <button onClick={() => handleSort('stock')} className="flex items-center gap-1 hover:text-slate-700">
-                    {activeTab === 'raw' ? 'Stok (Kg/Unit)' : 'Stok (Kg)'}
-                    <ArrowUpDown size={14} className={sortBy === 'stock' ? 'text-emerald-600' : 'opacity-30'} />
-                  </button>
-                </th>
-                {activeTab === 'raw' && (
-                  <>
-                    <th className="px-6 py-4">
-                      <button onClick={() => handleSort('price')} className="flex items-center gap-1 hover:text-slate-700">
-                        Harga Satuan
-                        <ArrowUpDown size={14} className={sortBy === 'price' ? 'text-emerald-600' : 'opacity-30'} />
-                      </button>
-                    </th>
-                    <th className="px-6 py-4">
-                      <button onClick={() => handleSort('value')} className="flex items-center gap-1 hover:text-slate-700">
-                        Total Nilai
-                        <ArrowUpDown size={14} className={sortBy === 'value' ? 'text-emerald-600' : 'opacity-30'} />
-                      </button>
-                    </th>
-                  </>
-                )}
-                {activeTab === 'finished' && (
-                  <>
-                    <th className="px-6 py-4">
-                      <span className="flex items-center gap-1">Stok Unit</span>
-                    </th>
-                    <th className="px-6 py-4">Status</th>
-                  </>
-                )}
-                <th className="px-6 py-4 text-center">Riwayat</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {currentItems.length === 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                 <tr>
-                  <td colSpan={activeTab === 'raw' ? 7 : 6} className="px-6 py-12 text-center text-slate-400">
-                    <Package size={48} className="mx-auto mb-3 opacity-20" />
-                    <p className="font-medium text-slate-500">
-                      {searchQuery || filterDate ? `Tidak ditemukan hasil pencarian` : 'Belum ada barang di kategori ini.'}
-                    </p>
-                    <p className="text-sm mt-1">
-                      {searchQuery || filterDate ? 'Coba ubah kata kunci atau tanggal filter.' : 'Klik "Tambah Barang" untuk mulai.'}
-                    </p>
-                  </td>
+                  <th className="px-6 py-4">
+                    <button onClick={() => handleSort('category')} className="flex items-center gap-1 hover:text-slate-700">
+                      Kategori
+                    </button>
+                  </th>
+                  <th className="px-6 py-4">
+                    <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-slate-700">
+                      Nama Barang
+                      <ArrowUpDown size={14} className={sortBy === 'name' ? 'text-emerald-600' : 'opacity-30'} />
+                    </button>
+                  </th>
+                  <th className="px-6 py-4">
+                    <button onClick={() => handleSort('stock')} className="flex items-center gap-1 hover:text-slate-700">
+                      {activeTab === 'raw' ? 'Stok (Kg/Unit)' : 'Stok (Kg)'}
+                      <ArrowUpDown size={14} className={sortBy === 'stock' ? 'text-emerald-600' : 'opacity-30'} />
+                    </button>
+                  </th>
+                  {activeTab === 'raw' && (
+                    <>
+                      <th className="px-6 py-4">
+                        <button onClick={() => handleSort('price')} className="flex items-center gap-1 hover:text-slate-700">
+                          Harga Satuan
+                          <ArrowUpDown size={14} className={sortBy === 'price' ? 'text-emerald-600' : 'opacity-30'} />
+                        </button>
+                      </th>
+                      <th className="px-6 py-4">
+                        <button onClick={() => handleSort('value')} className="flex items-center gap-1 hover:text-slate-700">
+                          Total Nilai
+                          <ArrowUpDown size={14} className={sortBy === 'value' ? 'text-emerald-600' : 'opacity-30'} />
+                        </button>
+                      </th>
+                    </>
+                  )}
+                  {activeTab === 'finished' && (
+                    <>
+                      <th className="px-6 py-4">
+                        <span className="flex items-center gap-1">Stok Unit</span>
+                      </th>
+                      <th className="px-6 py-4">Status</th>
+                    </>
+                  )}
+                  <th className="px-6 py-4 text-center">Status</th>
+                  <th className="px-6 py-4 text-center">Riwayat</th>
                 </tr>
-              ) : (
-                currentItems.map((item) => {
-                  const isLowStock = item.stock <= item.minStock;
-                  return (
-                    <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-6 py-4 text-slate-500">{item.category}</td>
-                      <td className="px-6 py-4 font-medium text-slate-900">
-                        {item.name}
-                        <div className="text-[10px] text-slate-400 font-normal">Input: {item.createdAt}</div>
-                      </td>
-                      <td
-                        className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors"
-                        onClick={() => {
-                          setSelectedItem(item);
-                          setIsHistoryModalOpen(true);
-                        }}
-                        title="Klik untuk lihat riwayat stok"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-slate-700">
-                            {activeTab === 'finished'
-                              ? Number(item.stock.toFixed(3))
-                              : item.stock} {item.unit}
-                          </span>
-                          {isLowStock && activeTab === 'finished' && (
-                            <AlertTriangle size={14} className="text-amber-500" />
-                          )}
-                        </div>
-                      </td>
-                      {activeTab === 'raw' && (
-                        <>
-                          <td className="px-6 py-4 text-slate-600">Rp {item.price.toLocaleString()}</td>
-                          <td className="px-6 py-4 text-slate-600">Rp {(item.stock * item.price).toLocaleString()}</td>
-                        </>
-                      )}
-                      {activeTab === 'finished' && (
-                        <>
-                          <td className="px-6 py-4 text-slate-600 font-semibold text-center">
-                            {item.unit === 'kg' ? (
-                              <span>{Math.round(item.stock * 32).toLocaleString()} pcs</span>
-                            ) : (
-                              <span className="text-slate-400 font-normal italic">
-                                {item.stock} {item.unit}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={cn(
-                              "px-2.5 py-1 rounded-full text-xs font-medium border",
-                              !isLowStock
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                : "bg-red-50 text-red-700 border-red-100"
-                            )}>
-                              {isLowStock ? 'Stok Rendah' : 'Baik'}
-                            </span>
-                          </td>
-                        </>
-                      )}
-                      <td className="px-6 py-4 text-center">
-                        <button
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {currentItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={activeTab === 'raw' ? 7 : activeTab === 'finished' ? 6 : 5} className="px-6 py-12 text-center text-slate-400">
+                      <Package size={48} className="mx-auto mb-3 opacity-20" />
+                      <p className="font-medium text-slate-500">
+                        {searchQuery || filterDate ? `Tidak ditemukan hasil pencarian` : 'Belum ada barang di kategori ini.'}
+                      </p>
+                      <p className="text-sm mt-1">
+                        {searchQuery || filterDate ? 'Coba ubah kata kunci atau tanggal filter.' : 'Klik "Tambah Barang" untuk mulai.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  currentItems.map((item) => {
+                    const isLowStock = item.stock <= item.minStock;
+                    return (
+                      <tr key={item.id} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-6 py-4 text-slate-500">{item.category}</td>
+                        <td className="px-6 py-4 font-medium text-slate-900">
+                          {item.name}
+                          <div className="text-[10px] text-slate-400 font-normal">Input: {item.createdAt}</div>
+                        </td>
+                        <td
+                          className="px-6 py-4 cursor-pointer hover:bg-slate-100 transition-colors"
                           onClick={() => {
                             setSelectedItem(item);
                             setIsHistoryModalOpen(true);
                           }}
-                          className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all"
-                          title="Lihat Riwayat Pergerakan"
+                          title="Klik untuk lihat riwayat stok"
                         >
-                          <History size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-        {/* Table Footer */}
-        {currentItems.length > 0 && (
-          <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 flex items-center justify-between">
-            <span>Menampilkan {currentItems.length} dari {baseItems.length} barang</span>
-            <span>Total Nilai: <strong className="text-slate-700">Rp {totalValue.toLocaleString()}</strong></span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-700">
+                              {activeTab === 'finished'
+                                ? Number(item.stock.toFixed(3))
+                                : item.stock} {item.unit}
+                            </span>
+                            {isLowStock && activeTab === 'finished' && (
+                              <AlertTriangle size={14} className="text-amber-500" />
+                            )}
+                          </div>
+                        </td>
+                        {activeTab === 'raw' && (
+                          <>
+                            <td className="px-6 py-4 text-slate-600">Rp {item.price.toLocaleString()}</td>
+                            <td className="px-6 py-4 text-slate-600">Rp {(item.stock * item.price).toLocaleString()}</td>
+                          </>
+                        )}
+                        {activeTab === 'finished' && (
+                          <>
+                            <td className="px-6 py-4 text-slate-600 font-semibold text-center">
+                              {item.unit === 'kg' ? (
+                                <span>{Math.round(item.stock * 32).toLocaleString()} pcs</span>
+                              ) : (
+                                <span className="text-slate-400 font-normal italic">
+                                  {item.stock} {item.unit}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className={cn(
+                                "px-2.5 py-1 rounded-full text-xs font-medium border",
+                                !isLowStock
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                  : "bg-red-50 text-red-700 border-red-100"
+                              )}>
+                                {isLowStock ? 'Stok Rendah' : 'Baik'}
+                              </span>
+                            </td>
+                          </>
+                        )}
+                        <td className="px-6 py-4 text-center">
+                          <span className={cn(
+                            "px-2.5 py-1 rounded-full text-xs font-medium border",
+                            !isLowStock
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : "bg-amber-50 text-amber-700 border-amber-100"
+                          )}>
+                            {isLowStock ? 'Stok Rendah' : 'Baik'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setUsageUnit(item.unit);
+                                setUsageAmount('');
+                                setIsUsageModalOpen(true);
+                              }}
+                              className="px-3 py-1 bg-amber-50 text-amber-700 rounded-lg text-[11px] font-bold hover:bg-amber-100 transition-colors border border-amber-200"
+                            >
+                              Catat Pakai
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setIsHistoryModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Lihat Riwayat"
+                            >
+                              <History size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+          {/* Table Footer */}
+          {currentItems.length > 0 && (
+            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 flex items-center justify-between">
+              <span>Menampilkan {currentItems.length} dari {baseItems.length} barang</span>
+              <span>Total Nilai: <strong className="text-slate-700">Rp {totalValue.toLocaleString()}</strong></span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* History Table - Only visible on 'supply' tab */}
+      {activeTab === 'supply' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-white gap-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
+                <History size={20} />
+              </div>
+              <h2 className="font-bold text-slate-800 text-lg whitespace-nowrap">Histori Pengeluaran</h2>
+
+              <div className="relative flex-1 max-w-sm ml-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Cari barang atau alasan..."
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+              <div className="relative w-44">
+                <input
+                  type="date"
+                  className="px-3 py-2 w-full bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm text-slate-600"
+                  value={filterDate}
+                  onChange={e => setFilterDate(e.target.value)}
+                />
+              </div>
+
+              {/* Filter Tipe: Bahan Baku & Barang Jadi */}
+              <div className="flex bg-slate-100 p-1 rounded-xl shrink-0">
+                <button
+                  onClick={() => setFilterType('all')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    filterType === 'all'
+                      ? "bg-white text-slate-800 shadow-sm"
+                      : "text-slate-500 hover:text-slate-600"
+                  )}
+                >
+                  Semua
+                </button>
+                <button
+                  onClick={() => setFilterType('raw')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    filterType === 'raw'
+                      ? "bg-blue-600 text-white shadow-md"
+                      : "text-slate-500 hover:text-slate-600"
+                  )}
+                >
+                  Bahan Baku
+                </button>
+                <button
+                  onClick={() => setFilterType('finished')}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                    filterType === 'finished'
+                      ? "bg-purple-600 text-white shadow-md"
+                      : "text-slate-500 hover:text-slate-600"
+                  )}
+                >
+                  Barang Jadi
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider text-[11px]">
+                <tr>
+                  <th className="px-6 py-4">Tanggal</th>
+                  <th className="px-6 py-4">Nama Barang</th>
+                  <th className="px-6 py-4 text-center">Tipe</th>
+                  <th className="px-6 py-4 text-center">Jumlah</th>
+                  <th className="px-6 py-4">Keperluan / Alasan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredMovements.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                      <History size={48} className="mx-auto mb-3 opacity-10" />
+                      <p className="font-medium text-slate-500">Data pengeluaran tidak ditemukan.</p>
+                      <p className="text-xs mt-1">Gunakan tombol "Catat Pengeluaran Baru" untuk membuat entri.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredMovements.map((m) => {
+                    const item = inventory.find(i => i.id === m.itemId);
+                    return (
+                      <tr key={m.id} className="hover:bg-slate-50 transition-colors group">
+                        <td className="px-6 py-4 text-slate-500 font-medium whitespace-nowrap">
+                          {m.date}
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-bold text-slate-900 uppercase">{m.itemName}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={cn(
+                            "px-2 py-0.5 rounded-md text-[10px] font-black uppercase",
+                            item?.type === 'raw' ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-purple-50 text-purple-600 border border-purple-100"
+                          )}>
+                            {item?.type === 'raw' ? 'Bahan Baku' : 'Barang Jadi'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center font-black text-red-600 text-base">
+                          -{m.amount}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 italic text-sm">
+                          {m.reason}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+          {filteredMovements.length > 0 && (
+            <div className="px-6 py-3 border-t border-slate-100 bg-slate-50 text-xs text-slate-500 text-right">
+              Menampilkan {filteredMovements.length} catatan pengeluaran
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Click outside filter to close */}
-      {isFilterOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
-      )}
+      {
+        isFilterOpen && (
+          <div className="fixed inset-0 z-40" onClick={() => setIsFilterOpen(false)} />
+        )
+      }
 
       {/* History Modal */}
       <Modal
@@ -534,7 +765,7 @@ export default function Inventory() {
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={`Tambah ${activeTab === 'raw' ? 'Bahan Baku' : 'Barang Jadi'}`}
+        title={`Tambah ${activeTab === 'raw' ? 'Bahan Baku' : activeTab === 'finished' ? 'Barang Jadi' : 'Pengeluaran (Operasional)'}`}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -550,38 +781,71 @@ export default function Inventory() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tipe Barang</label>
+              <select
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+                value={activeTab}
+                onChange={e => {
+                  const val = e.target.value as any;
+                  setActiveTab(val);
+                  setNewItem({
+                    ...newItem,
+                    type: val,
+                    category: val === 'raw' ? 'Bahan Baku' : val === 'finished' ? 'Barang Jadi' : 'Operasional',
+                    unit: val === 'supply' ? 'tabung' : 'kg'
+                  });
+                }}
+              >
+                <option value="raw">Bahan Baku</option>
+                <option value="finished">Barang Jadi</option>
+                <option value="supply">Pengeluaran (Operasional)</option>
+              </select>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Kategori</label>
               <select
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                 value={newItem.category}
                 onChange={e => setNewItem({ ...newItem, category: e.target.value as Category })}
               >
-                <option value="Bahan Baku">Bahan Baku</option>
-                <option value="Bumbu">Bumbu</option>
-                <option value="Kerupuk">Kerupuk</option>
-                <option value="Pempek">Pempek</option>
-                <option value="Packaging">Packaging</option>
+                {activeTab === 'raw' ? (
+                  <>
+                    <option value="Bahan Baku">Bahan Baku</option>
+                    <option value="Bumbu">Bumbu</option>
+                    <option value="Packaging">Packaging</option>
+                  </>
+                ) : activeTab === 'finished' ? (
+                  <>
+                    <option value="Kerupuk">Kerupuk</option>
+                    <option value="Pempek">Pempek</option>
+                  </>
+                ) : (
+                  <option value="Operasional">Operasional</option>
+                )}
+                <option value="Other">Lainnya</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Satuan</label>
-              <select
-                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                value={newItem.unit}
-                onChange={e => setNewItem({ ...newItem, unit: e.target.value as Unit })}
-              >
-                <option value="kg">kg</option>
-                <option value="L">L</option>
-                <option value="pcs">pcs</option>
-                <option value="bks">bks</option>
-                <option value="unit">unit</option>
-              </select>
-            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Satuan</label>
+            <select
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              value={newItem.unit}
+              onChange={e => setNewItem({ ...newItem, unit: e.target.value as Unit })}
+            >
+              <option value="kg">kg</option>
+              <option value="L">L</option>
+              <option value="pcs">pcs</option>
+              <option value="bks">bks</option>
+              <option value="unit">unit</option>
+              <option value="tabung">tabung</option>
+              <option value="liter">liter</option>
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                {activeTab === 'raw' ? 'Estimasi Harga (Rp)' : 'Harga Jual (Rp)'}
+                {activeTab === 'finished' ? 'Harga Jual (Rp)' : 'Harga Beli (Rp)'}
               </label>
               <input
                 type="number"
@@ -592,15 +856,26 @@ export default function Inventory() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Batas Stok Rendah</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Stok Awal</label>
               <input
                 type="number"
                 required
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
-                value={newItem.minStock || ''}
-                onChange={e => setNewItem({ ...newItem, minStock: Number(e.target.value) })}
+                placeholder="Jumlah stok saat ini"
+                value={newItem.stock || ''}
+                onChange={e => setNewItem({ ...newItem, stock: Number(e.target.value) })}
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Batas Stok Rendah</label>
+            <input
+              type="number"
+              required
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
+              value={newItem.minStock || ''}
+              onChange={e => setNewItem({ ...newItem, minStock: Number(e.target.value) })}
+            />
           </div>
           <div className="pt-2 flex gap-3">
             <button
@@ -620,6 +895,107 @@ export default function Inventory() {
         </form>
       </Modal>
 
-    </div>
+      <Modal
+        isOpen={isUsageModalOpen}
+        onClose={() => setIsUsageModalOpen(false)}
+        title={selectedItem ? `Catat Pemakaian: ${selectedItem.name}` : 'Catat Pengeluaran Baru'}
+      >
+        <form onSubmit={handleSubmitUsage} className="space-y-4">
+          {!selectedItem && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Pilih Barang</label>
+              <select
+                required
+                className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+                value={selectedUsageItemId}
+                onChange={e => setSelectedUsageItemId(e.target.value)}
+              >
+                <option value="">-- Pilih Barang --</option>
+                <optgroup label="Bahan Baku">
+                  {rawMaterials.map(item => (
+                    <option key={item.id} value={item.id}>{item.name} (Stok: {item.stock} {item.unit})</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Barang Jadi">
+                  {finishedGoods.map(item => (
+                    <option key={item.id} value={item.id}>{item.name} (Stok: {Number(item.stock.toFixed(3))} {item.unit})</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+          )}
+
+          {selectedItem ? (
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl mb-4">
+              <p className="text-xs text-amber-700 font-medium">
+                Stok saat ini: <span className="font-bold">{selectedItem.stock} {selectedItem.unit}</span>
+              </p>
+            </div>
+          ) : selectedUsageItemId && (
+            <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl mb-4">
+              <p className="text-xs text-amber-700 font-medium">
+                Stok saat ini: <span className="font-bold">
+                  {inventory.find(i => i.id === selectedUsageItemId)?.stock} {inventory.find(i => i.id === selectedUsageItemId)?.unit}
+                </span>
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah yang Digunakan</label>
+            <div className="flex gap-3">
+              <input
+                type="number"
+                required
+                min="0.01"
+                step="0.01"
+                placeholder="0.00"
+                className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-bold"
+                value={usageAmount}
+                onChange={e => setUsageAmount(e.target.value)}
+              />
+              <select
+                className="px-3 py-3 bg-slate-900 text-white border border-slate-900 rounded-xl text-sm font-black min-w-[80px] text-center shadow-sm focus:outline-none"
+                value={usageUnit}
+                onChange={e => setUsageUnit(e.target.value as Unit)}
+              >
+                <option value="kg">kg</option>
+                <option value="pcs">pcs</option>
+                <option value="unit">unit</option>
+                <option value="tabung">tabung</option>
+                <option value="liter">liter</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Keperluan / Alasan</label>
+            <input
+              type="text"
+              required
+              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm"
+              placeholder="Contoh: Masak Kerupuk Kloter 1"
+              value={usageReason}
+              onChange={e => setUsageReason(e.target.value)}
+            />
+          </div>
+          <div className="pt-2 flex gap-3">
+            <button
+              type="button"
+              onClick={() => setIsUsageModalOpen(false)}
+              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 font-medium"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-xl hover:bg-amber-700 font-bold shadow-lg shadow-amber-100"
+            >
+              Catat Pengeluaran
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+    </div >
   );
 }

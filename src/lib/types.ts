@@ -1,5 +1,5 @@
-export type Category = 'Bahan Baku' | 'Bumbu' | 'Kerupuk' | 'Pempek' | 'Packaging';
-export type Unit = 'kg' | 'L' | 'pcs' | 'bks' | 'unit';
+export type Category = 'Bahan Baku' | 'Bumbu' | 'Kerupuk' | 'Pempek' | 'Packaging' | 'Operasional';
+export type Unit = 'kg' | 'L' | 'pcs' | 'bks' | 'unit' | 'tabung' | 'liter';
 export type Status = 'Good' | 'Low' | 'Critical';
 
 export interface InventoryItem {
@@ -10,7 +10,7 @@ export interface InventoryItem {
   unit: Unit;
   minStock: number;
   price: number; // Cost price for raw, Selling price for finished
-  type: 'raw' | 'finished';
+  type: 'raw' | 'finished' | 'supply';
   createdAt: string;
 }
 

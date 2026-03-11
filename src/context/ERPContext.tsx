@@ -35,6 +35,7 @@ interface ERPContextType {
   receivePurchaseOrder: (id: string, poObj?: PurchaseOrder) => void;
   addCustomer: (customer: Customer) => void;
   addEmployee: (employee: Employee) => void;
+  updateCustomer: (id: string, updates: Partial<Customer>) => void;
   addTransaction: (transaction: Transaction) => void;
   addRecipe: (recipe: Recipe) => void;
   updateRecipe: (id: string, updatedRecipe: Recipe) => void;
@@ -233,8 +234,12 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   }, []);
 
-  const completeSalesOrder = useCallback((id: string) => {
-    const so = salesOrders.find(s => s.id === id);
+  const updateCustomer = useCallback((id: string, updates: Partial<Customer>) => {
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+  }, []);
+
+  const completeSalesOrder = useCallback((id: string, soObj?: SalesOrder) => {
+    const so = soObj || salesOrders.find(s => s.id === id);
     if (!so || so.status === 'Completed') return;
 
     // 1. Deduct goods using the sales order date
@@ -334,6 +339,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createPurchaseOrder,
     receivePurchaseOrder,
     addCustomer,
+    updateCustomer,
     addEmployee,
     addTransaction,
     addRecipe,
@@ -349,7 +355,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addInventoryItem, updateInventoryItem, deleteInventoryItem, updateInventoryStock,
     adjustStock, createWorkOrder, completeWorkOrder, createSalesOrder,
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
-    addCustomer, addEmployee, addTransaction, addRecipe,
+    addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
     updateRecipe, deleteRecipe, totalRevenue, totalExpenses,
     netProfit, lowStockItems
   ]);

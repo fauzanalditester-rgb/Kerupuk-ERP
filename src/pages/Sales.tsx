@@ -6,7 +6,15 @@ import { SalesOrder } from '../lib/types';
 import { cn } from '../lib/utils';
 
 export default function Sales() {
-  const { salesOrders, createSalesOrder, completeSalesOrder, inventory, updateInventoryItem } = useERP();
+  const {
+    salesOrders,
+    createSalesOrder,
+    completeSalesOrder,
+    inventory,
+    updateInventoryItem,
+    customers,
+    addCustomer
+  } = useERP();
   const [activeTab, setActiveTab] = useState<'orders' | 'pricelist'>('orders');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -26,12 +34,75 @@ export default function Sales() {
 
   // New SO State
   const [customerName, setCustomerName] = useState('');
-  const [selectedProductId, setSelectedProductId] = useState('');
-  const [quantity, setQuantity] = useState(0);
-  const [price, setPrice] = useState(0);
+  const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; unit: string }[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
   const [soDate, setSoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [autoComplete, setAutoComplete] = useState(true);
+
+  // Current item being added
+  const [currentItemId, setCurrentItemId] = useState('');
+  const [currentQty, setCurrentQty] = useState(0);
+  const [currentPrice, setCurrentPrice] = useState(0);
+
+  const SALES_TEMPLATES = [
+    {
+      id: 'template-pempek-lengkap',
+      name: 'Paket Pempek Lengkap',
+      items: [
+        { productId: 'PEM-LENGKAP', name: 'Pempek Campur', quantity: 20, price: 5000 },
+        { productId: 'CUKO-BKS', name: 'Cuko Bungkus', quantity: 2, price: 10000 }
+      ]
+    },
+    {
+      id: 'template-kerupuk-warung',
+      name: 'Paket Kerupuk Warung',
+      items: [
+        { productId: 'KRP-PANGGANG', name: 'Kerupuk Panggang', quantity: 10, price: 15000 },
+        { productId: 'KRP-IKAN', name: 'Kerupuk Ikan', quantity: 10, price: 12000 }
+      ]
+    }
+  ];
+
+  const handleApplyTemplate = (templateId: string) => {
+    const template = SALES_TEMPLATES.find(t => t.id === templateId);
+    if (!template) return;
+
+    const newItems = template.items.map(tItem => {
+      const invItem = inventory.find(i => i.id === tItem.productId || i.name === tItem.name);
+      return {
+        productId: invItem?.id || tItem.productId,
+        productName: invItem?.name || tItem.name,
+        quantity: tItem.quantity,
+        price: invItem?.price || tItem.price,
+        unit: invItem?.unit || 'pcs'
+      };
+    });
+
+    setSoItems([...soItems, ...newItems]);
+  };
+
+  const handleAddItem = () => {
+    if (currentItemId && currentQty > 0) {
+      const item = inventory.find(i => i.id === currentItemId);
+      if (item) {
+        setSoItems([...soItems, {
+          productId: item.id,
+          productName: item.name,
+          quantity: currentQty,
+          price: currentPrice || item.price,
+          unit: item.unit
+        }]);
+        setCurrentItemId('');
+        setCurrentQty(0);
+        setCurrentPrice(0);
+      }
+    }
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setSoItems(prev => prev.filter((_, i) => i !== index));
+  };
 
   const finishedGoods = inventory.filter(item => item.type === 'finished');
 
@@ -85,10 +156,26 @@ export default function Sales() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (customerName && selectedProductId && quantity > 0 && price > 0) {
-      const subtotal = price * quantity;
-      const discountAmount = (subtotal * discount) / 100;
-      const finalTotal = subtotal - discountAmount;
+
+    let finalItemsForSO = [...soItems];
+    // Auto-add current item if fields are filled but "+" was not clicked
+    if (currentItemId && currentQty > 0) {
+      const item = inventory.find(i => i.id === currentItemId);
+      if (item) {
+        finalItemsForSO.push({
+          productId: item.id,
+          productName: item.name,
+          quantity: currentQty,
+          price: currentPrice || item.price,
+          unit: item.unit
+        });
+      }
+    }
+
+    if (customerName && finalItemsForSO.length > 0) {
+      const subtotal = finalItemsForSO.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const discountAmount = Math.round((subtotal * discount) / 100);
+      const finalTotal = Math.round(subtotal - discountAmount);
 
       const getNowWithTime = () => {
         const now = new Date();
@@ -100,22 +187,57 @@ export default function Sales() {
         id: `SO-${Date.now()}`,
         customerName,
         date: getNowWithTime(),
-        items: [{ productId: selectedProductId, quantity, price }], // Store raw PCS quantity
+        items: finalItemsForSO.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: Math.round(item.price)
+        })),
         totalAmount: finalTotal,
         discount: discount,
         paymentMethod: paymentMethod,
         status: 'Processing'
       };
+
       createSalesOrder(newSO);
+
+      // Auto-add new customer if they don't exist in CRM
+      const customerExists = customers.some(c => c.name.toLowerCase() === customerName.toLowerCase());
+      if (!customerExists) {
+        addCustomer({
+          id: `CUST-${Date.now()}`,
+          name: customerName,
+          email: '',
+          phone: '',
+          address: '',
+          totalOrders: 1,
+          totalSpent: finalTotal
+        });
+      }
+
+      if (autoComplete) {
+        completeSalesOrder(newSO.id, newSO);
+      }
       setIsModalOpen(false);
+
+      // Reset all states
       setCustomerName('');
-      setSelectedProductId('');
-      setQuantity(0);
-      setPrice(0);
+      setSoItems([]);
       setDiscount(0);
       setPaymentMethod('Cash');
       setSoDate(new Date().toISOString().split('T')[0]);
+      setCurrentItemId('');
+      setCurrentQty(0);
+      setCurrentPrice(0);
+    } else if (finalItemsForSO.length === 0) {
+      alert('Mohon pilih setidaknya satu produk (klik tanda + atau isi jumlah barang).');
     }
+  };
+
+  const handlePrintInvoice = (so: SalesOrder) => {
+    setSelectedSO(so);
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   const getStatusLabel = (status: string) => {
@@ -389,6 +511,13 @@ export default function Sales() {
                             >
                               <Eye size={16} />
                             </button>
+                            <button
+                              onClick={() => handlePrintInvoice(so)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
+                              title="Cetak Invoice"
+                            >
+                              <Printer size={16} />
+                            </button>
                             {so.status !== 'Completed' && (
                               <button
                                 onClick={() => completeSalesOrder(so.id)}
@@ -617,189 +746,346 @@ export default function Sales() {
         )}
       </Modal>
 
-      {/* Create SO Modal */}
       <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         title="Buat Pesanan Penjualan"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan</label>
-            <input
-              type="text"
-              required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-              placeholder="misal: Warung Makan Padang"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan</label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                placeholder="misal: Warung Makan Padang"
+                list="customer-history"
+              />
+              <datalist id="customer-history">
+                {Array.from(new Set(customers.map(c => c.name))).map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Transaksi</label>
+              <input
+                type="date"
+                required
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={soDate}
+                onChange={e => setSoDate(e.target.value)}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Transaksi</label>
-            <input
-              type="date"
-              required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={soDate}
-              onChange={e => setSoDate(e.target.value)}
-            />
+          <div className="border-t border-slate-100 pt-4">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Pilih Barang</label>
+            </div>
+            <div className="flex gap-2 items-end bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <div className="flex-1 min-w-0">
+                <label className="block text-[10px] text-slate-500 mb-1 font-bold">PRODUK</label>
+                <select
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none"
+                  value={currentItemId}
+                  onChange={e => {
+                    const id = e.target.value;
+                    setCurrentItemId(id);
+                    const item = inventory.find(i => i.id === id);
+                    if (item) setCurrentPrice(item.price);
+                  }}
+                >
+                  <option value="">Pilih Produk...</option>
+                  {finishedGoods.map(item => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="w-20">
+                <label className="block text-[10px] text-slate-500 mb-1 font-bold">QTY</label>
+                <input
+                  type="number"
+                  min="0"
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none"
+                  value={currentQty || ''}
+                  onChange={e => setCurrentQty(Number(e.target.value))}
+                />
+              </div>
+              <div className="w-24">
+                <label className="block text-[10px] text-slate-500 mb-1 font-bold">HARGA</label>
+                <input
+                  type="number"
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none font-bold"
+                  value={currentPrice || ''}
+                  onChange={e => setCurrentPrice(Number(e.target.value))}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleAddItem}
+                className="p-1.5 bg-slate-800 text-white rounded hover:bg-slate-900"
+              >
+                <Plus size={18} />
+              </button>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Produk</label>
-            <select
-              required
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-              value={selectedProductId}
-              onChange={e => {
-                setSelectedProductId(e.target.value);
-                const item = finishedGoods.find(i => i.id === e.target.value);
-                if (item) {
-                  setPrice(item.price);
-                }
-              }}
-            >
-              <option value="">Pilih Produk</option>
-              {finishedGoods.map(item => {
-                const isKg = item.unit === 'kg';
-                const stockInPcs = isKg ? Math.round(item.stock * 78) : item.stock;
-                const displayUnit = isKg ? 'pcs' : item.unit;
-                return (
-                  <option key={item.id} value={item.id}>
-                    {item.name} (Stok: {stockInPcs} {displayUnit})
-                  </option>
-                );
-              })}
-            </select>
-          </div>
+          {soItems.length > 0 && (
+            <div className="border border-slate-100 rounded-lg overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 text-slate-500 uppercase font-bold">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Barang</th>
+                    <th className="px-3 py-2 text-center">Jumlah</th>
+                    <th className="px-3 py-2 text-right">Subtotal</th>
+                    <th className="px-3 py-2 text-center w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {soItems.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/50">
+                      <td className="px-3 py-2">
+                        <p className="font-bold text-slate-800">{item.productName}</p>
+                        <p className="text-[10px] text-slate-400">Rp {item.price.toLocaleString()}</p>
+                      </td>
+                      <td className="px-3 py-2 text-center">{item.quantity} {item.unit === 'kg' ? 'pcs' : item.unit}</td>
+                      <td className="px-3 py-2 text-right font-bold text-slate-900">
+                        Rp {Math.round(item.quantity * item.price).toLocaleString()}
+                      </td>
+                      <td className="px-3 py-2 text-center">
+                        <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-red-500">
+                          <X size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-50 font-bold border-t border-slate-100">
+                  <tr>
+                    <td colSpan={2} className="px-3 py-2 text-right text-slate-400">TOTAL:</td>
+                    <td className="px-3 py-2 text-right text-emerald-600">
+                      Rp {Math.round(soItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)).toLocaleString()}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Jumlah</label>
-              <input
-                type="number"
-                required
-                min="1"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                value={quantity || ''}
-                onChange={e => setQuantity(Number(e.target.value))}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Harga per Unit (Rp)</label>
-              <input
-                type="number"
-                required
-                min="0"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                value={price || ''}
-                onChange={e => setPrice(Number(e.target.value))}
-              />
-            </div>
-          </div>
-
-          {/* Discount Section */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Diskon (%)</label>
-            <div className="relative">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Diskon (%)</label>
               <input
                 type="number"
                 min="0"
                 max="100"
-                className="w-full pl-3 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 value={discount || ''}
                 onChange={e => setDiscount(Number(e.target.value))}
                 placeholder="0"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">%</span>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('Cash')}
+                  className={cn(
+                    "py-2 rounded-lg border text-xs font-bold transition-all",
+                    paymentMethod === 'Cash' ? "bg-emerald-600 text-white border-emerald-600" : "bg-slate-50 text-slate-400 border-slate-100"
+                  )}
+                >
+                  CASH
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('Debt')}
+                  className={cn(
+                    "py-2 rounded-lg border text-xs font-bold transition-all",
+                    paymentMethod === 'Debt' ? "bg-red-600 text-white border-red-600" : "bg-slate-50 text-slate-400 border-slate-100"
+                  )}
+                >
+                  UTANG
+                </button>
+              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('Cash')}
-                className={cn(
-                  "py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all",
-                  paymentMethod === 'Cash'
-                    ? "border-emerald-600 bg-emerald-50 text-emerald-700"
-                    : "border-slate-100 bg-slate-50 text-slate-500 opacity-60"
-                )}
-              >
-                <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  paymentMethod === 'Cash' ? "border-emerald-600 bg-emerald-600" : "border-slate-300"
-                )}>
-                  {paymentMethod === 'Cash' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </div>
-                <span className="font-bold text-xs">CASH</span>
-                <span className="text-[9px] opacity-70">Lunas</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('Debt')}
-                className={cn(
-                  "py-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all",
-                  paymentMethod === 'Debt'
-                    ? "border-red-600 bg-red-50 text-red-700"
-                    : "border-slate-100 bg-slate-50 text-slate-500 opacity-60"
-                )}
-              >
-                <div className={cn(
-                  "w-4 h-4 rounded-full border-2 flex items-center justify-center",
-                  paymentMethod === 'Debt' ? "border-red-600 bg-red-600" : "border-slate-300"
-                )}>
-                  {paymentMethod === 'Debt' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                </div>
-                <span className="font-bold text-xs">UTANG</span>
-                <span className="text-[9px] opacity-70">Piutang</span>
-              </button>
-            </div>
+          <div className="flex items-center gap-2 py-2 bg-emerald-50/50 px-3 rounded-lg border border-emerald-100">
+            <input
+              type="checkbox"
+              id="autoComplete"
+              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              checked={autoComplete}
+              onChange={e => setAutoComplete(e.target.checked)}
+            />
+            <label htmlFor="autoComplete" className="text-sm font-medium text-emerald-800">
+              Langsung selesaikan pesanan (Potong Stok Otomatis)
+            </label>
           </div>
 
-          {/* Preview total */}
-          {quantity > 0 && price > 0 && (
-            <div className="bg-slate-900 text-white p-4 rounded-xl space-y-2 border border-slate-800 shadow-xl">
-              <div className="flex justify-between text-slate-400 text-sm">
-                <span>Subtotal:</span>
-                <span>Rp {(quantity * price).toLocaleString()}</span>
-              </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-emerald-400 text-sm font-medium">
-                  <span>Diskon {discount}%:</span>
-                  <span>- Rp {((quantity * price * discount) / 100).toLocaleString()}</span>
-                </div>
-              )}
-              <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
-                <span className="font-bold text-lg">Total Akhir:</span>
-                <span className="font-bold text-2xl text-emerald-500">
-                  Rp {((quantity * price) - ((quantity * price * discount) / 100)).toLocaleString()}
-                </span>
-              </div>
-            </div>
-          )}
-
-          <div className="pt-4 flex gap-3">
+          <div className="pt-4 flex gap-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium"
+              className="flex-1 px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium transition-colors"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm shadow-emerald-200"
+              className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm transition-colors"
             >
-              Buat Pesanan
+              Simpan Pesanan
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* PRINTABLE INVOICE AREA (Hidden normally, visible in print) */}
+      <div id="invoice-print" className="hidden print:block fixed inset-0 bg-white z-[9999] p-8 font-sans text-slate-900">
+        {selectedSO && (() => {
+          const customerInfo = customers.find(c => c.name === selectedSO.customerName);
+          return (
+            <div className="w-full border-2 border-slate-200 p-6 space-y-4 text-xs">
+              <div className="flex justify-between items-center border-b-2 border-emerald-600 pb-3 no-break">
+                <div className="flex items-center gap-4">
+                  <div className="bg-emerald-600 text-white p-2 rounded-lg">
+                    <ShoppingBag size={24} />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-black text-emerald-600 tracking-tighter leading-none">INVOICE</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mt-1">Sistem ERP Kedai Kurupuk & Pempek</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-lg text-slate-900 uppercase">Nota No: {selectedSO.id}</p>
+                  <p className="text-slate-500 font-medium tracking-wide">Tanggal: {selectedSO.date}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-8 no-break py-2">
+                <div className="space-y-1 border-r border-slate-100 pr-4">
+                  <p className="font-bold text-emerald-600 uppercase text-[9px] mb-1">Status Toko</p>
+                  <p className="font-black text-sm text-slate-900 leading-tight">Kedai Kurupuk & Pempek</p>
+                  <p className="text-slate-600 leading-tight">Jl. Contoh No. 123, Kawasan Lagoi Bay</p>
+                  <p className="text-slate-600 font-medium">WhatsApp: 0812-3456-7890</p>
+                </div>
+                <div className="space-y-1 border-r border-slate-100 pr-4">
+                  <p className="font-bold text-emerald-600 uppercase text-[9px] mb-1">Data Pelanggan (CRM Terhubung)</p>
+                  <p className="font-black text-sm text-slate-900 leading-tight">{selectedSO.customerName}</p>
+                  <p className="text-slate-600 leading-tight italic">
+                    {customerInfo?.address || 'Alamat tidak ditemukan di CRM'}
+                  </p>
+                  <p className="text-slate-600 font-medium text-[10px]">
+                    Telp: {customerInfo?.phone || 'No. Telp tidak tersedia'}
+                  </p>
+                </div>
+                <div className="space-y-1 flex flex-col justify-center items-end">
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-right w-full">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Metode Pembayaran</p>
+                    <p className="text-lg font-black text-emerald-600 uppercase italic">
+                      {selectedSO.paymentMethod === 'Cash' ? '✓ Lunas (Tunai)' : '⚠ Piutang (Utang)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex-grow">
+                <table className="w-full text-left text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-emerald-600 text-white border-y border-emerald-700">
+                      <th className="px-3 py-2 font-bold uppercase tracking-wider">Deskripsi Produk</th>
+                      <th className="px-3 py-2 font-bold text-center w-24 uppercase tracking-wider">Jumlah</th>
+                      <th className="px-3 py-2 font-bold text-right w-32 uppercase tracking-wider">Harga Satuan</th>
+                      <th className="px-3 py-2 font-bold text-right w-32 uppercase tracking-wider">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {selectedSO.items.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-3 py-2 font-bold text-slate-800">{getProductName(item.productId)}</td>
+                        <td className="px-3 py-2 text-center text-slate-600 bg-slate-50/50">
+                          {item.quantity} {getProductUnit(item.productId)}
+                        </td>
+                        <td className="px-3 py-2 text-right text-slate-600 italic">Rp {item.price.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right font-black text-slate-900 bg-emerald-50/30">
+                          Rp {(item.quantity * item.price).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="grid grid-cols-2 gap-8 pt-4 no-break">
+                <div className="grid grid-cols-2 text-center text-[10px] items-end pb-2">
+                  <div className="space-y-14">
+                    <p className="font-bold border-b border-slate-200 pb-1 uppercase italic">Hormat Kami,</p>
+                    <p className="font-black text-slate-900">( Admin Toko )</p>
+                  </div>
+                  <div className="space-y-14">
+                    <p className="font-bold border-b border-slate-200 pb-1 uppercase italic">Penerima,</p>
+                    <p className="font-black text-slate-900 uppercase italic">( {selectedSO.customerName} )</p>
+                  </div>
+                </div>
+                <div className="flex justify-end pr-2">
+                  <div className="w-72 space-y-1 border-t-2 border-slate-100 pt-2">
+                    <div className="flex justify-between items-center text-slate-500 px-2 text-[10px]">
+                      <span>Tagihan Barang:</span>
+                      <span className="font-bold">Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0).toLocaleString()}</span>
+                    </div>
+                    {selectedSO.discount > 0 && (
+                      <div className="flex justify-between items-center text-emerald-600 px-2 bg-emerald-50 py-1 rounded text-[10px]">
+                        <span className="font-black italic text-[9px]">Diskon Khusus ({selectedSO.discount}%):</span>
+                        <span className="font-black">- Rp {((selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0) * selectedSO.discount) / 100).toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center bg-slate-900 text-white p-3 rounded-lg shadow-inner mt-2">
+                      <span className="text-xs font-black tracking-widest uppercase">Total Dibayar:</span>
+                      <span className="text-xl font-black text-emerald-400">Rp {selectedSO.totalAmount.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center pt-2 border-t border-dashed border-slate-200 no-break">
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] italic">
+                  *** Invoice ini sah dan terhubung dengan database CRM ERP System ***
+                </p>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @media print {
+          @page {
+            size: A4 landscape;
+            margin: 5mm;
+          }
+          body { margin: 0; padding: 0; }
+          body * { visibility: hidden; }
+          #invoice-print, #invoice-print * { visibility: visible; }
+          #invoice-print { 
+            position: absolute; 
+            left: 0; 
+            top: 0; 
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            background: white;
+          }
+          .no-break { break-inside: avoid; }
+        }
+      `}} />
     </div>
   );
 }

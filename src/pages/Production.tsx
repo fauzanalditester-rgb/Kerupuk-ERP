@@ -34,7 +34,7 @@ export default function Production() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [autoComplete, setAutoComplete] = useState(true);
+
 
   // New WO State
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -221,9 +221,7 @@ export default function Production() {
         yieldUnit
       };
       createWorkOrder(newWO);
-      if (autoComplete) {
-        completeWorkOrder(newWO.id, newWO);
-      }
+      completeWorkOrder(newWO.id, newWO);
       setIsModalOpen(false);
       // Reset form
       setSelectedProductId('');
@@ -856,18 +854,7 @@ export default function Production() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 py-2">
-            <input
-              type="checkbox"
-              id="autoComplete"
-              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-              checked={autoComplete}
-              onChange={e => setAutoComplete(e.target.checked)}
-            />
-            <label htmlFor="autoComplete" className="text-sm text-slate-600 font-medium">
-              Langsung Selesaikan & Update Stok Gudang
-            </label>
-          </div>
+
 
           <div className="pt-4 flex gap-3">
             <button

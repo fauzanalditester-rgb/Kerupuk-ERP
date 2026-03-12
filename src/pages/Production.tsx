@@ -42,12 +42,6 @@ export default function Production() {
   const [yieldUnit, setYieldUnit] = useState<'kg' | 'pcs'>('kg');
   const [batchCount, setBatchCount] = useState(1);
 
-  const quantity = useMemo(() => {
-    const rawValue = batchCount * yieldPerBatch;
-    // Standard: 1 kg = 32 pcs.
-    return yieldUnit === 'kg' ? Number(rawValue.toFixed(2)) : Number((rawValue / 32).toFixed(5));
-  }, [batchCount, yieldPerBatch, yieldUnit]);
-
   // Accurate total in the product's primary unit (PCS or KG) for recipe calculation
   const totalInProductUnit = useMemo(() => {
     const totalRaw = batchCount * yieldPerBatch;
@@ -58,16 +52,26 @@ export default function Production() {
     const yUnit = yieldUnit.toLowerCase();
 
     if (pUnit === yUnit) return totalRaw;
-    if (pUnit === 'kg' && yUnit === 'pcs') return totalRaw / 32;
-    if (pUnit === 'pcs' && yUnit === 'kg') return totalRaw * 32;
+    if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) return totalRaw / 32;
+    if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') return totalRaw * 32;
     return totalRaw;
   }, [batchCount, yieldPerBatch, yieldUnit, inventory, selectedProductId]);
+
+  const quantity = useMemo(() => {
+    return totalInProductUnit;
+  }, [totalInProductUnit]);
 
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
 
   // Materials for WO
-  const [materialsList, setMaterialsList] = useState<{ materialId: string; amount: number; isTemplate?: boolean }[]>([]);
+  const [materialsList, setMaterialsList] = useState<{
+    materialId: string;
+    amount: number;
+    isTemplate?: boolean;
+    displayAmount?: number;
+    displayUnit?: 'kg' | 'pcs' | 'bks';
+  }[]>([]);
   const [currentMaterialId, setCurrentMaterialId] = useState('');
   const [currentMaterialQty, setCurrentMaterialQty] = useState(0);
   const [currentMaterialInputUnit, setCurrentMaterialInputUnit] = useState<'kg' | 'pcs'>('kg');
@@ -80,42 +84,68 @@ export default function Production() {
     );
   }, [inventory, recipes]);
 
+  const hasRecipe = useMemo(() => {
+    return recipes.some(r => r.productId === selectedProductId);
+  }, [recipes, selectedProductId]);
+
+  const allPossibleIngredients = useMemo(() => inventory.filter(item =>
+    item.type === 'raw' ||
+    item.type === 'finished' ||
+    ['Bahan Baku', 'Bumbu', 'Pempek', 'Kerupuk'].includes(item.category)
+  ), [inventory]);
+
   const rawMaterials = useMemo(() => inventory.filter(item => item.type === 'raw'), [inventory]);
 
-  // Auto-fill template default berdasarkan resep dinamis
+  // 1. Auto-fill settings only when product changes or modal opens
   React.useEffect(() => {
-    if (!isModalOpen) {
-      setMaterialsList([]); // Bersihkan list ketika modal ditutup
-      return;
+    if (!isModalOpen || !selectedProductId) return;
+
+    const recipe = recipes.find(r => r.productId === selectedProductId);
+    if (recipe) {
+      // Set values from recipe
+      setBatchCount(recipe.batchCount || 1);
+      setYieldPerBatch(recipe.yieldPerBatch || 2.3);
+      setYieldUnit(recipe.yieldUnit || 'kg');
     }
+  }, [selectedProductId, isModalOpen]); // Removed recipes from dependency to avoid loop if recipes update
 
-    if (batchCount > 0 && selectedProductId) {
-      const selProduct = finishedGoods.find(fg => fg.id === selectedProductId);
-      let recipe = recipes.find(r => r.productId === selectedProductId);
+  // 2. Separate logic for calculating ingredients based on batch/yield
+  React.useEffect(() => {
+    if (!isModalOpen || !selectedProductId) return;
 
-      if (!recipe && selProduct) {
-        recipe = recipes.find(r => r.productName === selProduct.name);
-      }
+    const recipe = recipes.find(r => r.productId === selectedProductId);
+    if (recipe) {
+      const defaultMaterials = recipe.ingredients.map(ing => {
+        const item = inventory.find(i => i.id === ing.materialId);
+        const baseAmount = Number((ing.amount * totalInProductUnit).toFixed(5));
 
-      if (recipe) {
-        const defaultMaterials = recipe.ingredients.map(ing => {
-          return {
-            materialId: ing.materialId,
-            amount: Number((ing.amount * totalInProductUnit).toFixed(2)),
-            isTemplate: true
-          };
-        });
+        let dUnit = ing.displayUnit || item?.unit || 'kg';
+        let dAmount = baseAmount;
 
-        setMaterialsList(prev => {
-          const manualItems = prev.filter(p => !p.isTemplate);
-          return [...defaultMaterials, ...manualItems];
-        });
-      } else {
-        // Bersihkan template list karena tidak ada resep untuk produk yang dipilih
-        setMaterialsList(prev => prev.filter(p => !p.isTemplate));
-      }
+        // Convert baseAmount (which is the actual amount in item's unit) to display unit if needed
+        if (dUnit === 'pcs' && item?.unit === 'kg') {
+          dAmount = Number((baseAmount * 32).toFixed(2));
+        } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
+          dAmount = Number((baseAmount / 32).toFixed(5));
+        }
+
+        return {
+          materialId: ing.materialId,
+          amount: baseAmount,
+          displayAmount: dAmount,
+          displayUnit: dUnit,
+          isTemplate: true
+        };
+      });
+
+      setMaterialsList(prev => {
+        const manualItems = prev.filter(p => !p.isTemplate);
+        return [...defaultMaterials, ...manualItems];
+      });
+    } else {
+      setMaterialsList(prev => prev.filter(p => !p.isTemplate));
     }
-  }, [totalInProductUnit, rawMaterials, selectedProductId, isModalOpen, recipes, finishedGoods]);
+  }, [totalInProductUnit, selectedProductId, isModalOpen, recipes]);
 
 
   // Filtered work orders
@@ -165,16 +195,25 @@ export default function Production() {
     if (currentMaterialId && currentMaterialQty > 0) {
       const item = inventory.find(i => i.id === currentMaterialId);
       const isKgItem = item?.unit === 'kg';
+      const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
 
-      // Convert to base unit (kg) if user entered in PCS for a KG-tracked item
-      const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
-        ? Number((currentMaterialQty / 32).toFixed(5))
-        : currentMaterialQty;
+      let finalAmount = currentMaterialQty;
+      if (isKgItem && currentMaterialInputUnit === 'pcs') {
+        finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+      } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+        finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+      }
 
-      setMaterialsList([...materialsList, { materialId: currentMaterialId, amount: finalAmount }]);
+      setMaterialsList([...materialsList, {
+        materialId: currentMaterialId,
+        amount: finalAmount,
+        displayAmount: currentMaterialQty,
+        displayUnit: currentMaterialInputUnit,
+        isTemplate: false
+      }]);
       setCurrentMaterialId('');
       setCurrentMaterialQty(0);
-      setCurrentMaterialInputUnit('kg'); // Reset to default
+      setCurrentMaterialInputUnit('kg');
     }
   };
 
@@ -193,9 +232,13 @@ export default function Production() {
       if (currentMaterialId && currentMaterialQty > 0) {
         const item = inventory.find(i => i.id === currentMaterialId);
         const isKgItem = item?.unit === 'kg';
-        const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
-          ? Number((currentMaterialQty / 32).toFixed(5))
-          : currentMaterialQty;
+        const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
+        let finalAmount = currentMaterialQty;
+        if (isKgItem && currentMaterialInputUnit === 'pcs') {
+          finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+        } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+          finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+        }
         finalMaterialsList.push({ materialId: currentMaterialId, amount: finalAmount });
       }
 
@@ -215,7 +258,12 @@ export default function Production() {
         startDate: getNowWithTime(startDate),
         dueDate: getNowWithTime(dueDate),
         progress: 0,
-        materialsUsed: finalMaterialsList.map(m => ({ materialId: m.materialId, amount: m.amount })),
+        materialsUsed: finalMaterialsList.map(m => ({
+          materialId: m.materialId,
+          amount: m.amount,
+          displayAmount: (m as any).displayAmount,
+          displayUnit: (m as any).displayUnit
+        })),
         batchCount,
         yieldPerBatch,
         yieldUnit
@@ -501,18 +549,48 @@ export default function Production() {
             <div className="divide-y divide-slate-100">
               {recipes.map((recipe) => (
                 <div key={recipe.id} className="p-4 hover:bg-slate-50 transition-colors">
-                  <h4 className="font-medium text-emerald-700 mb-2">{recipe.productName}</h4>
-                  <ul className="space-y-1">
-                    {recipe.ingredients.map((ing) => {
-                      const mat = inventory.find(m => m.id === ing.materialId);
-                      return (
-                        <li key={ing.materialId} className="flex justify-between text-xs text-slate-600">
-                          <span>{mat?.name}</span>
-                          <span className="font-medium text-slate-900">{ing.amount} {mat?.unit || 'unit'}</span>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  {(() => {
+                    const targetProduct = inventory.find(i => i.id === recipe.productId);
+                    const bCount = recipe.batchCount || 1;
+                    const yPerBatch = recipe.yieldPerBatch || 2.3;
+                    const yUnit = (recipe.yieldUnit || 'kg').toLowerCase();
+                    const pUnit = (targetProduct?.unit || (yUnit === 'kg' ? 'kg' : 'pcs')).toLowerCase();
+
+                    let totalYieldMultiplier = bCount * yPerBatch;
+                    if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldMultiplier /= 32;
+                    else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldMultiplier *= 32;
+
+                    return (
+                      <>
+                        <div className="flex justify-between items-center mb-2">
+                          <h4 className="font-medium text-emerald-700">{recipe.productName}</h4>
+                          <span className="text-[10px] font-bold text-slate-400">UNTUK {bCount * yPerBatch} {yUnit}</span>
+                        </div>
+                        <ul className="space-y-1">
+                          {recipe.ingredients.map((ing) => {
+                            const mat = inventory.find(m => m.id === ing.materialId);
+                            const totalAmt = ing.amount * totalYieldMultiplier;
+
+                            let displayAmt = totalAmt;
+                            let displayUn = ing.displayUnit || mat?.unit || 'kg';
+
+                            if (displayUn === 'pcs' && mat?.unit === 'kg') {
+                              displayAmt = Number((totalAmt * 32).toFixed(2));
+                            } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
+                              displayAmt = Number((totalAmt / 32).toFixed(5));
+                            }
+
+                            return (
+                              <li key={ing.materialId} className="flex justify-between text-xs text-slate-600">
+                                <span>{mat?.name}</span>
+                                <span className="font-medium text-slate-900">{Number(displayAmt.toFixed(4))} {displayUn}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>
@@ -610,10 +688,25 @@ export default function Production() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] text-emerald-800 uppercase font-bold tracking-wider">Total Hasil</p>
-                  <p className="text-lg font-bold text-emerald-600">
-                    {selectedWO.quantity} {selectedWO.yieldUnit}
-                  </p>
+                  <p className={cn("text-[10px] uppercase font-bold tracking-wider", selectedWO.status === 'Completed' ? "text-emerald-800" : "text-blue-800")}>Total Hasil</p>
+                  <div className={cn("text-lg font-bold leading-tight", selectedWO.status === 'Completed' ? "text-emerald-600" : "text-blue-600")}>
+                    {(() => {
+                      const product = inventory.find(p => p.id === selectedWO.productId);
+                      const baseUnit = (product?.unit || 'kg').toLowerCase();
+                      const yieldUnit = (selectedWO.yieldUnit || 'kg').toLowerCase();
+                      const totalYield = (selectedWO.batchCount || 1) * (selectedWO.yieldPerBatch || 0);
+
+                      if (baseUnit !== yieldUnit) {
+                        return (
+                          <div className="flex flex-col items-end">
+                            <span>{Number(selectedWO.quantity.toFixed(4))} {baseUnit}</span>
+                            <span className="text-[10px] opacity-70 font-medium">≈ {totalYield} {yieldUnit}</span>
+                          </div>
+                        );
+                      }
+                      return <span>{Number(selectedWO.quantity.toFixed(4))} {baseUnit}</span>;
+                    })()}
+                  </div>
                 </div>
               </div>
             )}
@@ -706,20 +799,24 @@ export default function Production() {
                 <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setYieldUnit('kg')}
+                    onClick={() => !hasRecipe && setYieldUnit('kg')}
+                    disabled={hasRecipe}
                     className={cn(
                       "px-2 py-0.5 text-[10px] font-bold rounded transition-all",
-                      yieldUnit === 'kg' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                      yieldUnit === 'kg' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600",
+                      hasRecipe && "cursor-not-allowed opacity-70"
                     )}
                   >
                     KG
                   </button>
                   <button
                     type="button"
-                    onClick={() => setYieldUnit('pcs')}
+                    onClick={() => !hasRecipe && setYieldUnit('pcs')}
+                    disabled={hasRecipe}
                     className={cn(
                       "px-2 py-0.5 text-[10px] font-bold rounded transition-all",
-                      yieldUnit === 'pcs' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600"
+                      yieldUnit === 'pcs' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600",
+                      hasRecipe && "cursor-not-allowed opacity-70"
                     )}
                   >
                     PCS
@@ -732,7 +829,11 @@ export default function Production() {
                   required
                   min="0"
                   step="any"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  readOnly={hasRecipe}
+                  className={cn(
+                    "w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                    hasRecipe && "bg-slate-50 text-slate-500 font-semibold"
+                  )}
                   value={yieldPerBatch === 0 ? '' : yieldPerBatch}
                   onChange={e => setYieldPerBatch(Number(e.target.value))}
                 />
@@ -745,8 +846,14 @@ export default function Production() {
               <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-lg flex justify-between items-center text-sm shadow-sm">
                 <span className="font-semibold text-emerald-800">Total Produksi (Masuk Gudang):</span>
                 <div className="text-right">
-                  <span className="text-xl font-bold text-emerald-600 mr-2">{quantity} kg</span>
-                  <span className="text-sm font-medium text-emerald-500">({Math.round(quantity * 32)} pcs)</span>
+                  <span className="text-xl font-bold text-emerald-600 mr-2">
+                    {quantity} {inventory.find(i => i.id === selectedProductId)?.unit || yieldUnit}
+                  </span>
+                  {yieldUnit === 'kg' ? (
+                    <span className="text-sm font-medium text-emerald-500">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
+                  ) : (
+                    <span className="text-sm font-medium text-emerald-500">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -786,9 +893,20 @@ export default function Production() {
                     }}
                   >
                     <option value="">Tambah Bahan Lainnya...</option>
-                    {rawMaterials.map(item => (
-                      <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
-                    ))}
+                    <optgroup label="📦 BAHAN BAKU / BUMBU">
+                      {allPossibleIngredients
+                        .filter(item => item.type !== 'finished')
+                        .map(item => (
+                          <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="🍱 BARANG JADI (Sub-Resep)">
+                      {allPossibleIngredients
+                        .filter(item => item.type === 'finished')
+                        .map(item => (
+                          <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
+                        ))}
+                    </optgroup>
                   </select>
                 </div>
                 <div className="w-24">
@@ -806,10 +924,22 @@ export default function Production() {
                     </span>
                   </div>
                 </div>
+                <div className="flex bg-white/50 p-0.5 rounded-lg border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMaterialInputUnit('kg')}
+                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'kg' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                  >KG</button>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentMaterialInputUnit('pcs')}
+                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'pcs' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                  >PCS</button>
+                </div>
                 <button
                   type="button"
                   onClick={handleAddMaterial}
-                  className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                  className="p-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                 >
                   <Plus size={20} />
                 </button>
@@ -834,7 +964,7 @@ export default function Production() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-sm font-bold text-slate-900">
-                            {m.amount} {item?.unit}
+                            {m.displayAmount || m.amount} {m.displayUnit || item?.unit}
                           </span>
                           {!m.isTemplate && (
                             <button

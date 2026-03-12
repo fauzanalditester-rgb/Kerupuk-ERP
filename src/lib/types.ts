@@ -23,7 +23,12 @@ export interface WorkOrder {
   startDate: string;
   dueDate: string;
   progress: number;
-  materialsUsed: { materialId: string; amount: number }[]; // Recipe snapshot
+  materialsUsed: {
+    materialId: string;
+    amount: number;
+    displayAmount?: number;
+    displayUnit?: string;
+  }[]; // Recipe snapshot
   batchCount?: number;
   yieldPerBatch?: number;
   yieldUnit?: 'kg' | 'pcs';
@@ -87,6 +92,8 @@ export interface StockMovement {
   itemName: string;
   type: 'In' | 'Out' | 'Adjustment';
   amount: number;
+  displayAmount?: number;
+  displayUnit?: string;
   reason: string;
   referenceId?: string;
   date: string;
@@ -96,7 +103,15 @@ export interface Recipe {
   id: string;
   productId: string;
   productName: string;
-  ingredients: { materialId: string; amount: number }[];
+  ingredients: {
+    materialId: string;
+    amount: number;
+    displayAmount?: number;
+    displayUnit?: 'kg' | 'pcs' | 'bks'
+  }[];
+  batchCount?: number;
+  yieldPerBatch?: number;
+  yieldUnit?: 'kg' | 'pcs' | 'bks';
 }
 
 export interface User {

@@ -147,7 +147,16 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setInventory(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
   }, []);
 
-  const updateInventoryStock = useCallback((id: string, amount: number, type: StockMovement['type'] = 'Adjustment', reason: string = 'Pembaruan Manual', refId?: string, customDate?: string) => {
+  const updateInventoryStock = useCallback((
+    id: string,
+    amount: number,
+    type: StockMovement['type'] = 'Adjustment',
+    reason: string = 'Pembaruan Manual',
+    refId?: string,
+    customDate?: string,
+    displayAmount?: number,
+    displayUnit?: string
+  ) => {
     setInventory(prevInventory => {
       const item = prevInventory.find(i => i.id === id);
       if (!item) {
@@ -163,6 +172,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         itemName: item.name,
         type,
         amount: Math.abs(amount),
+        displayAmount: displayAmount,
+        displayUnit: displayUnit,
         reason,
         referenceId: refId,
         date: finalDate
@@ -212,9 +223,27 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 1. Deduct materials and Add finished goods using the order's date
     wo.materialsUsed.forEach(mat => {
-      updateInventoryStock(mat.materialId, -mat.amount, 'Out', `Produksi ${wo.productName}`, wo.id, completionDate);
+      updateInventoryStock(
+        mat.materialId,
+        -mat.amount,
+        'Out',
+        `Produksi ${wo.productName}`,
+        wo.id,
+        completionDate,
+        mat.displayAmount,
+        mat.displayUnit
+      );
     });
-    updateInventoryStock(wo.productId, wo.quantity, 'In', `Hasil Produksi ${wo.id}`, wo.id, completionDate);
+    updateInventoryStock(
+      wo.productId,
+      wo.quantity,
+      'In',
+      `Hasil Produksi ${wo.id}`,
+      wo.id,
+      completionDate,
+      (wo.batchCount || 1) * (wo.yieldPerBatch || 0),
+      wo.yieldUnit
+    );
 
     // 2. Automatically ensure the product exists in Inventory with correct type if for some reason it's missing (failsafe)
     // and potentially trigger a StockMovement if not handled by updateInventoryStock
@@ -234,11 +263,29 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const reversalDate = formatDateWithTime();
 
       // Revert finished goods (deduct)
-      updateInventoryStock(wo.productId, -wo.quantity, 'Out', `Penghapusan WO ${wo.id} (Reversal)`, wo.id, reversalDate);
+      updateInventoryStock(
+        wo.productId,
+        -wo.quantity,
+        'Out',
+        `Penghapusan WO ${wo.id} (Reversal)`,
+        wo.id,
+        reversalDate,
+        (wo.batchCount || 1) * (wo.yieldPerBatch || 0),
+        wo.yieldUnit
+      );
 
       // Revert raw materials (restore)
       wo.materialsUsed.forEach(mat => {
-        updateInventoryStock(mat.materialId, mat.amount, 'In', `Penghapusan WO ${wo.id} (Reversal Material)`, wo.id, reversalDate);
+        updateInventoryStock(
+          mat.materialId,
+          mat.amount,
+          'In',
+          `Penghapusan WO ${wo.id} (Reversal Material)`,
+          wo.id,
+          reversalDate,
+          mat.displayAmount,
+          mat.displayUnit
+        );
       });
     }
 

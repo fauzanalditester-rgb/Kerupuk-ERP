@@ -27,8 +27,12 @@ export default function ProductionRecipes() {
 
     // Get only finished goods for recipe creation target
     const finishedGoods = inventory.filter(item => item.type === 'finished' || item.category === 'Pempek' || item.category === 'Kerupuk');
-    // Get raw materials for ingredients
-    const rawMaterials = inventory.filter(item => item.type === 'raw' || item.category === 'Bahan Baku' || item.category === 'Bumbu');
+    // Get all materials for ingredients (Raw Materials + Finished Goods for semi-finished recipes)
+    const allPossibleIngredients = inventory.filter(item =>
+        item.type === 'raw' ||
+        item.type === 'finished' ||
+        ['Bahan Baku', 'Bumbu', 'Pempek', 'Kerupuk'].includes(item.category)
+    );
 
     // New Product Form State
     const [isNewProduct, setIsNewProduct] = useState(false);
@@ -82,15 +86,45 @@ export default function ProductionRecipes() {
     const handleEdit = (recipe: Recipe) => {
         setEditingRecipe(recipe);
         setProductId(recipe.productId);
-        // We set batch to 1 and yield to 1 so the user defines per 1 unit if they want, 
-        // but better yet, we just load original items.
-        setBatchCount(1);
-        setYieldPerBatch(1);
 
+        // Load default batch and yield from recipe if available
+        const bCount = recipe.batchCount || 1;
+        const yPerBatch = recipe.yieldPerBatch || 2.3;
+        const yUnit = recipe.yieldUnit || 'kg';
+
+        setBatchCount(bCount);
+        setYieldPerBatch(yPerBatch);
+        setYieldUnit(yUnit);
+
+        // Calculate total yield in the product's base unit to de-normalize ingredients
         const product = inventory.find(i => i.id === recipe.productId);
-        setYieldUnit(product?.unit as any || 'kg');
+        const pUnit = product?.unit?.toLowerCase() || (yUnit === 'kg' ? 'kg' : 'pcs');
+        let totalYieldInBase = bCount * yPerBatch;
 
-        setMaterialsList(recipe.ingredients.map(ing => ({ ...ing })));
+        if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldInBase /= 32;
+        else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldInBase *= 32;
+
+        setMaterialsList(recipe.ingredients.map(ing => {
+            const item = inventory.find(i => i.id === ing.materialId);
+            const baseAmount = ing.amount * totalYieldInBase;
+
+            let dUnit = ing.displayUnit || item?.unit || 'kg';
+            let dAmount = baseAmount;
+
+            if (dUnit === 'pcs' && item?.unit === 'kg') {
+                dAmount = Number((baseAmount * 32).toFixed(2));
+            } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
+                dAmount = Number((baseAmount / 32).toFixed(5));
+            }
+
+            return {
+                materialId: ing.materialId,
+                amount: baseAmount,
+                displayAmount: dAmount,
+                displayUnit: dUnit
+            } as any;
+        }));
+
         setIsNewProduct(false);
         setIsModalOpen(true);
     };
@@ -101,15 +135,39 @@ export default function ProductionRecipes() {
         }
     };
 
+    const toggleMaterialUnit = (newUnit: 'kg' | 'pcs') => {
+        if (newUnit === currentMaterialInputUnit) return;
+
+        let newQty = currentMaterialQty;
+        if (newUnit === 'pcs' && currentMaterialInputUnit === 'kg') {
+            newQty = Number((currentMaterialQty * 32).toFixed(2));
+        } else if (newUnit === 'kg' && currentMaterialInputUnit === 'pcs') {
+            newQty = Number((currentMaterialQty / 32).toFixed(5));
+        }
+
+        setCurrentMaterialInputUnit(newUnit);
+        setCurrentMaterialQty(newQty);
+    };
+
     const handleAddMaterial = () => {
         if (currentMaterialId && currentMaterialQty > 0) {
             const item = inventory.find(i => i.id === currentMaterialId);
             const isKgItem = item?.unit === 'kg';
-            const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
-                ? Number((currentMaterialQty / 32).toFixed(5))
-                : currentMaterialQty;
+            const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
 
-            setMaterialsList([...materialsList, { materialId: currentMaterialId, amount: finalAmount }]);
+            let finalAmount = currentMaterialQty;
+            if (isKgItem && currentMaterialInputUnit === 'pcs') {
+                finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+            } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+                finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+            }
+
+            setMaterialsList([...materialsList, {
+                materialId: currentMaterialId,
+                amount: finalAmount,
+                displayAmount: currentMaterialQty,
+                displayUnit: currentMaterialInputUnit
+            } as any]);
             setCurrentMaterialId('');
             setCurrentMaterialQty(0);
         }
@@ -133,10 +191,20 @@ export default function ProductionRecipes() {
         if (currentMaterialId && currentMaterialQty > 0) {
             const item = inventory.find(i => i.id === currentMaterialId);
             const isKgItem = item?.unit === 'kg';
-            const finalAmount = (isKgItem && currentMaterialInputUnit === 'pcs')
-                ? Number((currentMaterialQty / 32).toFixed(5))
-                : currentMaterialQty;
-            finalMaterials.push({ materialId: currentMaterialId, amount: finalAmount });
+            const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
+
+            let finalAmount = currentMaterialQty;
+            if (isKgItem && currentMaterialInputUnit === 'pcs') {
+                finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+            } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+                finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+            }
+            finalMaterials.push({
+                materialId: currentMaterialId,
+                amount: finalAmount,
+                displayAmount: currentMaterialQty,
+                displayUnit: currentMaterialInputUnit
+            } as any);
         }
 
         if (finalMaterials.length === 0) {
@@ -172,7 +240,8 @@ export default function ProductionRecipes() {
         // Normalize ingredients to "Per 1 Unit"
         const normalizedIngredients = finalMaterials.map(m => ({
             materialId: m.materialId,
-            amount: Number((m.amount / totalInProductUnit).toFixed(6))
+            amount: Number((m.amount / totalInProductUnit).toFixed(6)),
+            displayUnit: (m as any).displayUnit
         }));
 
         if (editingRecipe) {
@@ -180,14 +249,20 @@ export default function ProductionRecipes() {
                 ...editingRecipe,
                 productId: finalProductId,
                 productName: finalProductName,
-                ingredients: normalizedIngredients
+                ingredients: normalizedIngredients,
+                batchCount,
+                yieldPerBatch,
+                yieldUnit
             });
         } else {
             addRecipe({
                 id: `RCP-${Date.now()}`,
                 productId: finalProductId,
                 productName: finalProductName,
-                ingredients: normalizedIngredients
+                ingredients: normalizedIngredients,
+                batchCount,
+                yieldPerBatch,
+                yieldUnit
             });
         }
 
@@ -273,24 +348,51 @@ export default function ProductionRecipes() {
                                 </div>
 
                                 <div className="p-4 flex-1">
-                                    <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-                                        <span>KOMPOSISI BAHAN Baku</span>
-                                        <span>PER {targetProduct?.unit || 'UNIT'}</span>
-                                    </div>
+                                    {(() => {
+                                        const bCount = recipe.batchCount || 1;
+                                        const yPerBatch = recipe.yieldPerBatch || 2.3;
+                                        const yUnit = recipe.yieldUnit || 'kg';
 
-                                    <ul className="space-y-1.5">
-                                        {recipe.ingredients.map((ing, idx) => {
-                                            const mat = getMaterialDetails(ing.materialId);
-                                            return (
-                                                <li key={idx} className="flex justify-between items-center text-sm p-2 rounded-lg bg-slate-50/50 border border-transparent hover:border-slate-100 transition-colors">
-                                                    <span className="text-slate-700 font-medium">{mat ? mat.name : 'Bahan dihapus'}</span>
-                                                    <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100 text-xs">
-                                                        {ing.amount} {mat?.unit}
-                                                    </span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
+                                        const pUnit = targetProduct?.unit?.toLowerCase() || (yUnit === 'kg' ? 'kg' : 'pcs');
+                                        let totalYieldBase = bCount * yPerBatch;
+
+                                        if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldBase /= 32;
+                                        else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldBase *= 32;
+
+                                        return (
+                                            <>
+                                                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
+                                                    <span>KOMPOSISI BAHAN Baku</span>
+                                                    <span>UNTUK {bCount * yPerBatch} {yUnit}</span>
+                                                </div>
+
+                                                <ul className="space-y-1.5">
+                                                    {recipe.ingredients.map((ing, idx) => {
+                                                        const mat = getMaterialDetails(ing.materialId);
+                                                        const totalAmt = ing.amount * totalYieldBase;
+
+                                                        let displayAmt = totalAmt;
+                                                        let displayUn = ing.displayUnit || mat?.unit || 'kg';
+
+                                                        if (displayUn === 'pcs' && mat?.unit === 'kg') {
+                                                            displayAmt = Number((totalAmt * 32).toFixed(2));
+                                                        } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
+                                                            displayAmt = Number((totalAmt / 32).toFixed(5));
+                                                        }
+
+                                                        return (
+                                                            <li key={idx} className="flex justify-between items-center text-sm p-2 rounded-lg bg-slate-50/50 border border-transparent hover:border-slate-100 transition-colors">
+                                                                <span className="text-slate-700 font-medium">{mat ? mat.name : 'Bahan dihapus'}</span>
+                                                                <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-100 text-xs">
+                                                                    {Number(displayAmt.toFixed(4))} {displayUn}
+                                                                </span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            </>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex justify-between items-center mt-auto">
@@ -408,6 +510,11 @@ export default function ProductionRecipes() {
                                 <span className="font-semibold text-emerald-800">Total Produksi yang Didefinisikan:</span>
                                 <div className="text-right">
                                     <span className="text-xl font-bold text-emerald-600 mr-2">{(batchCount * yieldPerBatch).toFixed(2)} {yieldUnit}</span>
+                                    {yieldUnit === 'kg' ? (
+                                        <span className="text-[10px] font-bold text-emerald-500 uppercase">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
+                                    ) : (
+                                        <span className="text-[10px] font-bold text-emerald-500 uppercase">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                                    )}
                                 </div>
                             </div>
                             <p className="text-[10px] text-slate-400 mt-1 italic">* Sistem akan otomatis menghitung rasio bahan baku "Per Unit" dari data di atas.</p>
@@ -435,9 +542,26 @@ export default function ProductionRecipes() {
                                         }}
                                     >
                                         <option value="">Tambah Bahan...</option>
-                                        {rawMaterials.map(item => (
-                                            <option key={item.id} value={item.id}>{item.name} ({item.stock} {item.unit})</option>
-                                        ))}
+                                        <optgroup label="📦 BAHAN BAKU / BUMBU">
+                                            {allPossibleIngredients
+                                                .filter(item => item.type !== 'finished')
+                                                .map(item => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name} ({item.stock} {item.unit})
+                                                    </option>
+                                                ))
+                                            }
+                                        </optgroup>
+                                        <optgroup label="🍱 BARANG JADI (Sub-Resep)">
+                                            {allPossibleIngredients
+                                                .filter(item => item.type === 'finished')
+                                                .map(item => (
+                                                    <option key={item.id} value={item.id}>
+                                                        {item.name} ({item.stock} {item.unit})
+                                                    </option>
+                                                ))
+                                            }
+                                        </optgroup>
                                     </select>
                                 </div>
                                 <div className="w-24">
@@ -453,10 +577,22 @@ export default function ProductionRecipes() {
                                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase">{currentMaterialInputUnit}</span>
                                     </div>
                                 </div>
+                                <div className="flex bg-white/50 p-0.5 rounded-lg border border-slate-200">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleMaterialUnit('kg')}
+                                        className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'kg' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                                    >KG</button>
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleMaterialUnit('pcs')}
+                                        className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'pcs' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                                    >PCS</button>
+                                </div>
                                 <button
                                     type="button"
                                     onClick={handleAddMaterial}
-                                    className="p-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                                    className="p-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
                                 >
                                     <Plus size={20} />
                                 </button>
@@ -474,7 +610,9 @@ export default function ProductionRecipes() {
                                             <div key={idx} className="flex items-center justify-between p-2.5 rounded-lg border bg-white border-slate-100 transition-all">
                                                 <span className="text-sm font-medium text-slate-700">{item?.name}</span>
                                                 <div className="flex items-center gap-3">
-                                                    <span className="text-sm font-bold text-slate-900">{m.amount} {item?.unit}</span>
+                                                    <span className="text-sm font-bold text-slate-900">
+                                                        {(m as any).displayAmount || m.amount} {(m as any).displayUnit || item?.unit}
+                                                    </span>
                                                     <button type="button" onClick={() => removeMaterial(idx)} className="text-slate-400 hover:text-red-500"><X size={14} /></button>
                                                 </div>
                                             </div>

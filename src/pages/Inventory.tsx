@@ -137,9 +137,31 @@ export default function Inventory() {
   const handleSubmitUsage = (e: React.FormEvent) => {
     e.preventDefault();
     const itemId = selectedItem?.id || selectedUsageItemId;
-    const amount = Number(usageAmount);
-    if (itemId && amount > 0) {
-      updateInventoryStock(itemId, -Math.abs(amount), 'Out', usageReason);
+    const item = inventory.find(i => i.id === itemId);
+    const amountInput = Number(usageAmount);
+
+    if (itemId && item && amountInput > 0) {
+      let finalAmount = amountInput;
+      const baseUnit = item.unit.toLowerCase();
+      const inputUnit = usageUnit.toLowerCase();
+
+      // Handle conversions
+      if (baseUnit === 'kg' && (inputUnit === 'pcs' || inputUnit === 'bks')) {
+        finalAmount = Number((amountInput / 32).toFixed(5));
+      } else if ((baseUnit === 'pcs' || baseUnit === 'bks') && inputUnit === 'kg') {
+        finalAmount = Number((amountInput * 32).toFixed(5));
+      }
+
+      updateInventoryStock(
+        itemId,
+        -Math.abs(finalAmount),
+        'Out',
+        usageReason,
+        undefined,
+        undefined,
+        amountInput,
+        usageUnit
+      );
 
       setIsUsageModalOpen(false);
       setUsageAmount('');
@@ -444,8 +466,8 @@ export default function Inventory() {
                   )}
                   {activeTab === 'finished' && (
                     <>
-                      <th className="px-6 py-4">
-                        <span className="flex items-center gap-1">Stok Unit</span>
+                      <th className="px-6 py-4 text-center">
+                        <span className="flex items-center justify-center gap-1">Total (Pcs)</span>
                       </th>
                     </>
                   )}
@@ -503,14 +525,18 @@ export default function Inventory() {
                         )}
                         {activeTab === 'finished' && (
                           <>
-                            <td className="px-6 py-4 text-slate-600 font-semibold text-center">
-                              {item.unit === 'kg' ? (
-                                <span>{Math.round(item.stock * 32).toLocaleString()} pcs</span>
-                              ) : (
-                                <span className="text-slate-400 font-normal italic">
-                                  {item.stock} {item.unit}
+                            <td className="px-6 py-4 text-center">
+                              <div className="flex flex-col items-center">
+                                <span className="font-black text-emerald-600 text-lg">
+                                  {item.unit === 'kg' ? Math.round(item.stock * 32).toLocaleString() : item.stock.toLocaleString()}
+                                  <span className="text-[10px] ml-1 font-bold">PCS</span>
                                 </span>
-                              )}
+                                {item.unit === 'kg' && (
+                                  <span className="text-[10px] text-slate-400 font-normal italic">
+                                    Setara {Number(item.stock.toFixed(4))} {item.unit}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </>
                         )}
@@ -662,7 +688,7 @@ export default function Inventory() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center font-black text-red-600 text-base">
-                          -{m.amount}
+                          -{m.displayAmount !== undefined ? `${m.displayAmount} ${m.displayUnit}` : `${m.amount} ${item?.unit}`}
                         </td>
                         <td className="px-6 py-4 text-slate-600 italic text-sm">
                           {m.reason}
@@ -730,7 +756,31 @@ export default function Inventory() {
                         movement.type === 'Out' ? "text-red-600" :
                           "text-amber-600"
                     )}>
-                      {movement.type === 'In' ? '+' : '-'}{Number(movement.amount.toFixed(3))} {selectedItem?.unit}
+                      {movement.type === 'In' ? '+' : '-'}
+                      {(() => {
+                        const baseAmt = movement.amount;
+                        const baseUnit = (selectedItem?.unit || 'kg').toLowerCase();
+
+                        const isDisplay = movement.displayAmount !== undefined;
+                        const displayAmt = isDisplay ? movement.displayAmount! : movement.amount;
+                        const displayUnit = (movement.displayUnit || baseUnit).toLowerCase();
+
+                        // Priority: Display what the user actually input (e.g. 10 pcs)
+                        let primaryText = `${Number(displayAmt.toFixed(3))} ${displayUnit}`;
+                        let secondaryText = "";
+
+                        if (isDisplay && displayUnit !== baseUnit) {
+                          // Show the internal KG/Base conversion in brackets
+                          secondaryText = ` (${Number(baseAmt.toFixed(4))} ${baseUnit})`;
+                        } else if (!isDisplay && baseUnit === 'kg') {
+                          // Legacy fallback for old records
+                          secondaryText = ` (${(baseAmt * 32).toLocaleString()} pcs)`;
+                        } else if (!isDisplay && (baseUnit === 'pcs' || baseUnit === 'bks')) {
+                          secondaryText = ` (${(baseAmt / 32).toFixed(3)} kg)`;
+                        }
+
+                        return `${primaryText}${secondaryText}`;
+                      })()}
                     </p>
                   </div>
                 </div>

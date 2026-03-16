@@ -146,10 +146,12 @@ export default function Inventory() {
       const inputUnit = usageUnit.toLowerCase();
 
       // Handle conversions
-      if (baseUnit === 'kg' && (inputUnit === 'pcs' || inputUnit === 'bks')) {
-        finalAmount = Number((amountInput / 32).toFixed(5));
-      } else if ((baseUnit === 'pcs' || baseUnit === 'bks') && inputUnit === 'kg') {
-        finalAmount = Number((amountInput * 32).toFixed(5));
+      if (item.category !== 'Kerupuk') {
+        if (baseUnit === 'kg' && (inputUnit === 'pcs' || inputUnit === 'bks')) {
+          finalAmount = Number((amountInput / 32).toFixed(5));
+        } else if ((baseUnit === 'pcs' || baseUnit === 'bks') && inputUnit === 'kg') {
+          finalAmount = Number((amountInput * 32).toFixed(5));
+        }
       }
 
       updateInventoryStock(
@@ -196,7 +198,7 @@ export default function Inventory() {
   const handleExportCSV = () => {
     const headers = activeTab === 'raw'
       ? ['Kategori', 'Nama Barang', 'Stok Kg', 'Harga Satuan', 'Total Nilai', 'Status', 'Tanggal Input']
-      : ['Kategori', 'Nama Barang', 'Stok Kg', 'Stok Unit (32 pcs/kg)', 'Status', 'Tanggal Input'];
+      : ['Kategori', 'Nama Barang', 'Stok Kg', 'Stok Unit (PCS/BKS)', 'Status', 'Tanggal Input'];
 
     const rows = currentItems.map(item => {
       if (activeTab === 'raw') {
@@ -214,7 +216,7 @@ export default function Inventory() {
           item.category,
           item.name,
           item.stock,
-          item.unit === 'kg' ? Math.round(item.stock * 32) : item.stock,
+          (item.unit === 'kg' && item.category !== 'Kerupuk') ? Math.round(item.stock * 32) : item.stock,
           item.stock <= item.minStock ? 'Stok Rendah' : 'Baik',
           item.createdAt
         ];
@@ -467,7 +469,7 @@ export default function Inventory() {
                   {activeTab === 'finished' && (
                     <>
                       <th className="px-6 py-4 text-center">
-                        <span className="flex items-center justify-center gap-1">Total (Pcs)</span>
+                        <span className="flex items-center justify-center gap-1">Ekuivalen Unit (PCS)</span>
                       </th>
                     </>
                   )}
@@ -527,14 +529,25 @@ export default function Inventory() {
                           <>
                             <td className="px-6 py-4 text-center">
                               <div className="flex flex-col items-center">
-                                <span className="font-black text-emerald-600 text-lg">
-                                  {item.unit === 'kg' ? Math.round(item.stock * 32).toLocaleString() : item.stock.toLocaleString()}
-                                  <span className="text-[10px] ml-1 font-bold">PCS</span>
-                                </span>
-                                {item.unit === 'kg' && (
-                                  <span className="text-[10px] text-slate-400 font-normal italic">
-                                    Setara {Number(item.stock.toFixed(4))} {item.unit}
-                                  </span>
+                                {item.category === 'Kerupuk' ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-slate-400 font-bold uppercase tracking-widest text-[10px] bg-slate-50 px-2 py-1 rounded border border-slate-100">
+                                      Modul KG (1:1)
+                                    </span>
+                                    <span className="text-[9px] text-slate-300 mt-0.5 font-medium italic">Tanpa Konversi PCS</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <span className="font-black text-emerald-600 text-lg">
+                                      {item.unit === 'kg' ? Math.round(item.stock * 32).toLocaleString() : item.stock.toLocaleString()}
+                                      <span className="text-[10px] ml-1 font-bold">PCS</span>
+                                    </span>
+                                    {item.unit === 'kg' && (
+                                      <span className="text-[10px] text-slate-400 font-normal italic">
+                                        Setara {Number(item.stock.toFixed(4))} {item.unit}
+                                      </span>
+                                    )}
+                                  </>
                                 )}
                               </div>
                             </td>
@@ -772,10 +785,10 @@ export default function Inventory() {
                         if (isDisplay && displayUnit !== baseUnit) {
                           // Show the internal KG/Base conversion in brackets
                           secondaryText = ` (${Number(baseAmt.toFixed(4))} ${baseUnit})`;
-                        } else if (!isDisplay && baseUnit === 'kg') {
+                        } else if (!isDisplay && baseUnit === 'kg' && selectedItem?.category !== 'Kerupuk') {
                           // Legacy fallback for old records
                           secondaryText = ` (${(baseAmt * 32).toLocaleString()} pcs)`;
-                        } else if (!isDisplay && (baseUnit === 'pcs' || baseUnit === 'bks')) {
+                        } else if (!isDisplay && (baseUnit === 'pcs' || baseUnit === 'bks') && selectedItem?.category !== 'Kerupuk') {
                           secondaryText = ` (${(baseAmt / 32).toFixed(3)} kg)`;
                         }
 

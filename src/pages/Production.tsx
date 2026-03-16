@@ -52,6 +52,13 @@ export default function Production() {
     const yUnit = yieldUnit.toLowerCase();
 
     if (pUnit === yUnit) return totalRaw;
+
+    // Specialized Logic: Kerupuk has NO ratio (1:1 kg)
+    if (product.category === 'Kerupuk') {
+      return totalRaw;
+    }
+
+    // Pempek Logic (UNDISTURBED)
     if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) return totalRaw / 32;
     if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') return totalRaw * 32;
     return totalRaw;
@@ -100,14 +107,26 @@ export default function Production() {
   React.useEffect(() => {
     if (!isModalOpen || !selectedProductId) return;
 
+    const product = inventory.find(i => i.id === selectedProductId);
+    const category = product?.category;
     const recipe = recipes.find(r => r.productId === selectedProductId);
+
     if (recipe) {
       // Set values from recipe
       setBatchCount(recipe.batchCount || 1);
-      setYieldPerBatch(recipe.yieldPerBatch || 2.3);
+      setYieldPerBatch(recipe.yieldPerBatch || (category === 'Kerupuk' ? 1 : 2.3));
       setYieldUnit(recipe.yieldUnit || 'kg');
+    } else {
+      // Fallback defaults if recipe is weirdly missing (though shouldn't happen based on finishedGoods filter)
+      if (category === 'Kerupuk') {
+        setYieldPerBatch(1);
+        setYieldUnit('kg');
+      } else {
+        setYieldPerBatch(2.3);
+        setYieldUnit('kg');
+      }
     }
-  }, [selectedProductId, isModalOpen]); // Removed recipes from dependency to avoid loop if recipes update
+  }, [selectedProductId, isModalOpen, inventory, recipes]);
 
   // 2. Separate logic for calculating ingredients based on batch/yield
   React.useEffect(() => {
@@ -122,11 +141,13 @@ export default function Production() {
         let dUnit = ing.displayUnit || item?.unit || 'kg';
         let dAmount = baseAmount;
 
-        // Convert baseAmount (which is the actual amount in item's unit) to display unit if needed
-        if (dUnit === 'pcs' && item?.unit === 'kg') {
-          dAmount = Number((baseAmount * 32).toFixed(2));
-        } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
-          dAmount = Number((baseAmount / 32).toFixed(5));
+        if (item?.category !== 'Kerupuk') {
+          // Convert baseAmount (which is the actual amount in item's unit) to display unit if needed
+          if (dUnit === 'pcs' && item?.unit === 'kg') {
+            dAmount = Number((baseAmount * 32).toFixed(2));
+          } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
+            dAmount = Number((baseAmount / 32).toFixed(5));
+          }
         }
 
         return {
@@ -198,10 +219,12 @@ export default function Production() {
       const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
 
       let finalAmount = currentMaterialQty;
-      if (isKgItem && currentMaterialInputUnit === 'pcs') {
-        finalAmount = Number((currentMaterialQty / 32).toFixed(5));
-      } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
-        finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+      if (item?.category !== 'Kerupuk') {
+        if (isKgItem && currentMaterialInputUnit === 'pcs') {
+          finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+        } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+          finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+        }
       }
 
       setMaterialsList([...materialsList, {
@@ -234,10 +257,12 @@ export default function Production() {
         const isKgItem = item?.unit === 'kg';
         const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
         let finalAmount = currentMaterialQty;
-        if (isKgItem && currentMaterialInputUnit === 'pcs') {
-          finalAmount = Number((currentMaterialQty / 32).toFixed(5));
-        } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
-          finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+        if (item?.category !== 'Kerupuk') {
+          if (isKgItem && currentMaterialInputUnit === 'pcs') {
+            finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+          } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+            finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+          }
         }
         finalMaterialsList.push({ materialId: currentMaterialId, amount: finalAmount });
       }
@@ -273,7 +298,6 @@ export default function Production() {
       setIsModalOpen(false);
       // Reset form
       setSelectedProductId('');
-      setYieldPerBatch(2.3);
       setBatchCount(1);
       setStartDate(new Date().toISOString().split('T')[0]);
       setDueDate(new Date().toISOString().split('T')[0]);
@@ -574,10 +598,12 @@ export default function Production() {
                             let displayAmt = totalAmt;
                             let displayUn = ing.displayUnit || mat?.unit || 'kg';
 
-                            if (displayUn === 'pcs' && mat?.unit === 'kg') {
-                              displayAmt = Number((totalAmt * 32).toFixed(2));
-                            } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
-                              displayAmt = Number((totalAmt / 32).toFixed(5));
+                            if (mat?.category !== 'Kerupuk') {
+                              if (displayUn === 'pcs' && mat?.unit === 'kg') {
+                                displayAmt = Number((totalAmt * 32).toFixed(2));
+                              } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
+                                displayAmt = Number((totalAmt / 32).toFixed(5));
+                              }
                             }
 
                             return (
@@ -800,11 +826,11 @@ export default function Production() {
                   <button
                     type="button"
                     onClick={() => !hasRecipe && setYieldUnit('kg')}
-                    disabled={hasRecipe}
+                    disabled={hasRecipe || inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk'}
                     className={cn(
                       "px-2 py-0.5 text-[10px] font-bold rounded transition-all",
                       yieldUnit === 'kg' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600",
-                      hasRecipe && "cursor-not-allowed opacity-70"
+                      (hasRecipe || inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk') && "cursor-not-allowed opacity-70"
                     )}
                   >
                     KG
@@ -812,11 +838,11 @@ export default function Production() {
                   <button
                     type="button"
                     onClick={() => !hasRecipe && setYieldUnit('pcs')}
-                    disabled={hasRecipe}
+                    disabled={hasRecipe || inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk'}
                     className={cn(
                       "px-2 py-0.5 text-[10px] font-bold rounded transition-all",
                       yieldUnit === 'pcs' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-400 hover:text-slate-600",
-                      hasRecipe && "cursor-not-allowed opacity-70"
+                      (hasRecipe || inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk') && "cursor-not-allowed opacity-70"
                     )}
                   >
                     PCS
@@ -840,6 +866,11 @@ export default function Production() {
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">
                   {yieldUnit}
                 </span>
+                {inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk' && (
+                  <div className="absolute -top-6 right-0 bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase ring-1 ring-emerald-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                    Modul Khusus Kerupuk: 1 Batch = 1 KG
+                  </div>
+                )}
               </div>
             </div>
             <div className="col-span-2">
@@ -849,10 +880,14 @@ export default function Production() {
                   <span className="text-xl font-bold text-emerald-600 mr-2">
                     {quantity} {inventory.find(i => i.id === selectedProductId)?.unit || yieldUnit}
                   </span>
-                  {yieldUnit === 'kg' ? (
-                    <span className="text-sm font-medium text-emerald-500">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
-                  ) : (
-                    <span className="text-sm font-medium text-emerald-500">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                  {inventory.find(i => i.id === selectedProductId)?.category !== 'Kerupuk' && (
+                    <>
+                      {yieldUnit === 'kg' ? (
+                        <span className="text-sm font-medium text-emerald-500">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
+                      ) : (
+                        <span className="text-sm font-medium text-emerald-500">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -928,12 +963,14 @@ export default function Production() {
                   <button
                     type="button"
                     onClick={() => setCurrentMaterialInputUnit('kg')}
-                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'kg' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                    disabled={inventory.find(i => i.id === currentMaterialId)?.category === 'Kerupuk'}
+                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'kg' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400", inventory.find(i => i.id === currentMaterialId)?.category === 'Kerupuk' && "cursor-not-allowed opacity-50")}
                   >KG</button>
                   <button
                     type="button"
                     onClick={() => setCurrentMaterialInputUnit('pcs')}
-                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'pcs' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400")}
+                    disabled={inventory.find(i => i.id === currentMaterialId)?.category === 'Kerupuk'}
+                    className={cn("px-2 py-1 text-[9px] font-bold rounded", currentMaterialInputUnit === 'pcs' ? "bg-slate-900 text-white shadow-sm" : "text-slate-400", inventory.find(i => i.id === currentMaterialId)?.category === 'Kerupuk' && "cursor-not-allowed opacity-50")}
                   >PCS</button>
                 </div>
                 <button

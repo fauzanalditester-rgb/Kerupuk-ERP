@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { CookingPot, Plus, Search, CheckCircle2, Factory, FileEdit, Trash2, X, PlusCircle, MinusCircle, Package, Calendar } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useERP } from '../context/ERPContext';
@@ -25,6 +25,7 @@ export default function ProductionRecipes() {
     const [currentMaterialQty, setCurrentMaterialQty] = useState(0);
     const [currentMaterialInputUnit, setCurrentMaterialInputUnit] = useState<'kg' | 'pcs'>('kg');
 
+
     // Get only finished goods for recipe creation target
     const finishedGoods = inventory.filter(item => item.type === 'finished' || item.category === 'Pempek' || item.category === 'Kerupuk');
     // Get all materials for ingredients (Raw Materials + Finished Goods for semi-finished recipes)
@@ -40,17 +41,47 @@ export default function ProductionRecipes() {
     const [newProductCategory, setNewProductCategory] = useState<Category>('Pempek');
     const [newProductUnit, setNewProductUnit] = useState<'kg' | 'pcs' | 'bks'>('kg');
 
+    // Auto-update yield based on category for Kerupuk specialized module
+    useEffect(() => {
+        if (editingRecipe) return;
+
+        let currentCategory: Category | undefined;
+        if (isNewProduct) {
+            currentCategory = newProductCategory;
+        } else {
+            const product = inventory.find(i => i.id === productId);
+            currentCategory = product?.category;
+        }
+
+        if (currentCategory === 'Kerupuk') {
+            setYieldPerBatch(1);
+            setYieldUnit('kg');
+        } else if (currentCategory === 'Pempek') {
+            // Keep Pempek at its standard 2.3kg/batch
+            setYieldPerBatch(2.3);
+            setYieldUnit('kg');
+        }
+    }, [productId, newProductCategory, isNewProduct, inventory, editingRecipe]);
+
+
     const totalInProductUnit = useMemo(() => {
         const totalRaw = batchCount * yieldPerBatch;
         const targetId = isNewProduct ? 'TEMP' : productId;
         const product = inventory.find(i => i.id === targetId);
+        const category = isNewProduct ? newProductCategory : product?.category;
 
         // For new product, guess unit based on category if not selected
-        const pUnit = product ? product.unit.toLowerCase() : (newProductCategory === 'Kerupuk' ? 'bks' : 'kg');
+        const pUnit = product ? product.unit.toLowerCase() : (newProductCategory === 'Kerupuk' ? 'kg' : 'kg');
         const yUnit = yieldUnit.toLowerCase();
 
         if (pUnit === yUnit) return totalRaw;
-        // Logic: 1kg = 32pcs/bks
+
+        // Logic specialized: Kerupuk has NO ratio (1:1 kg)
+        if (category === 'Kerupuk') {
+            return totalRaw; // No conversion for Kerupuk
+        }
+
+        // Logic Pempek: 1kg = 32pcs/bks (UNDISTURBED)
         if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) return totalRaw / 32;
         if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') return totalRaw * 32;
         return totalRaw;
@@ -99,10 +130,13 @@ export default function ProductionRecipes() {
         // Calculate total yield in the product's base unit to de-normalize ingredients
         const product = inventory.find(i => i.id === recipe.productId);
         const pUnit = product?.unit?.toLowerCase() || (yUnit === 'kg' ? 'kg' : 'pcs');
+        const category = product?.category;
         let totalYieldInBase = bCount * yPerBatch;
 
-        if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldInBase /= 32;
-        else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldInBase *= 32;
+        if (category !== 'Kerupuk') {
+            if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldInBase /= 32;
+            else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldInBase *= 32;
+        }
 
         setMaterialsList(recipe.ingredients.map(ing => {
             const item = inventory.find(i => i.id === ing.materialId);
@@ -111,10 +145,12 @@ export default function ProductionRecipes() {
             let dUnit = ing.displayUnit || item?.unit || 'kg';
             let dAmount = baseAmount;
 
-            if (dUnit === 'pcs' && item?.unit === 'kg') {
-                dAmount = Number((baseAmount * 32).toFixed(2));
-            } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
-                dAmount = Number((baseAmount / 32).toFixed(5));
+            if (item?.category !== 'Kerupuk') {
+                if (dUnit === 'pcs' && item?.unit === 'kg') {
+                    dAmount = Number((baseAmount * 32).toFixed(2));
+                } else if (dUnit === 'kg' && (item?.unit === 'pcs' || item?.unit === 'bks')) {
+                    dAmount = Number((baseAmount / 32).toFixed(5));
+                }
             }
 
             return {
@@ -156,10 +192,12 @@ export default function ProductionRecipes() {
             const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
 
             let finalAmount = currentMaterialQty;
-            if (isKgItem && currentMaterialInputUnit === 'pcs') {
-                finalAmount = Number((currentMaterialQty / 32).toFixed(5));
-            } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
-                finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+            if (item?.category !== 'Kerupuk') {
+                if (isKgItem && currentMaterialInputUnit === 'pcs') {
+                    finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+                } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+                    finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+                }
             }
 
             setMaterialsList([...materialsList, {
@@ -194,10 +232,12 @@ export default function ProductionRecipes() {
             const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
 
             let finalAmount = currentMaterialQty;
-            if (isKgItem && currentMaterialInputUnit === 'pcs') {
-                finalAmount = Number((currentMaterialQty / 32).toFixed(5));
-            } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
-                finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+            if (item?.category !== 'Kerupuk') {
+                if (isKgItem && currentMaterialInputUnit === 'pcs') {
+                    finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+                } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+                    finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+                }
             }
             finalMaterials.push({
                 materialId: currentMaterialId,
@@ -222,7 +262,7 @@ export default function ProductionRecipes() {
                 name: newProductName,
                 category: newProductCategory,
                 stock: 0,
-                unit: (newProductCategory === 'Kerupuk' ? 'bks' : 'kg') as any,
+                unit: 'kg', // Default normalized to KG for both, but definitely Kerupuk is strictly kg now
                 minStock: 10,
                 price: 0,
                 type: 'finished' as const,
@@ -354,10 +394,13 @@ export default function ProductionRecipes() {
                                         const yUnit = recipe.yieldUnit || 'kg';
 
                                         const pUnit = targetProduct?.unit?.toLowerCase() || (yUnit === 'kg' ? 'kg' : 'pcs');
+                                        const category = targetProduct?.category;
                                         let totalYieldBase = bCount * yPerBatch;
 
-                                        if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldBase /= 32;
-                                        else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldBase *= 32;
+                                        if (category !== 'Kerupuk') {
+                                            if (pUnit === 'kg' && (yUnit === 'pcs' || yUnit === 'bks')) totalYieldBase /= 32;
+                                            else if ((pUnit === 'pcs' || pUnit === 'bks') && yUnit === 'kg') totalYieldBase *= 32;
+                                        }
 
                                         return (
                                             <>
@@ -374,10 +417,12 @@ export default function ProductionRecipes() {
                                                         let displayAmt = totalAmt;
                                                         let displayUn = ing.displayUnit || mat?.unit || 'kg';
 
-                                                        if (displayUn === 'pcs' && mat?.unit === 'kg') {
-                                                            displayAmt = Number((totalAmt * 32).toFixed(2));
-                                                        } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
-                                                            displayAmt = Number((totalAmt / 32).toFixed(5));
+                                                        if (mat?.category !== 'Kerupuk') {
+                                                            if (displayUn === 'pcs' && mat?.unit === 'kg') {
+                                                                displayAmt = Number((totalAmt * 32).toFixed(2));
+                                                            } else if (displayUn === 'kg' && (mat?.unit === 'pcs' || mat?.unit === 'bks')) {
+                                                                displayAmt = Number((totalAmt / 32).toFixed(5));
+                                                            }
                                                         }
 
                                                         return (
@@ -405,14 +450,12 @@ export default function ProductionRecipes() {
                 </div>
             )}
 
-            {/* Modal aligned with Production.tsx Create WO */}
             <Modal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 title={editingRecipe ? "Ubah Resep (BOM)" : "Buat Resep Baru (BOM)"}
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Step 1: Same as Production.tsx */}
                     <div>
                         <div className="flex justify-between items-center mb-1">
                             <label className="block text-sm font-medium text-slate-700 font-bold uppercase tracking-tight">Pilih Produk</label>
@@ -462,7 +505,6 @@ export default function ProductionRecipes() {
                         )}
                     </div>
 
-                    {/* Step 2: Batch & Yield (Copied from Production.tsx) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-slate-700 mb-1">Dibuat untuk Berapa Batch?</label>
@@ -503,6 +545,11 @@ export default function ProductionRecipes() {
                                     onChange={e => setYieldPerBatch(Number(e.target.value))}
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">{yieldUnit}</span>
+                                {(isNewProduct ? newProductCategory : inventory.find(i => i.id === productId)?.category) === 'Kerupuk' && (
+                                    <div className="absolute -top-6 right-0 bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase ring-1 ring-emerald-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                                        Modul Khusus Kerupuk: 1 Batch = 1 KG
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="col-span-2">
@@ -510,10 +557,14 @@ export default function ProductionRecipes() {
                                 <span className="font-semibold text-emerald-800">Total Produksi yang Didefinisikan:</span>
                                 <div className="text-right">
                                     <span className="text-xl font-bold text-emerald-600 mr-2">{(batchCount * yieldPerBatch).toFixed(2)} {yieldUnit}</span>
-                                    {yieldUnit === 'kg' ? (
-                                        <span className="text-[10px] font-bold text-emerald-500 uppercase">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
-                                    ) : (
-                                        <span className="text-[10px] font-bold text-emerald-500 uppercase">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                                    {(isNewProduct ? newProductCategory : inventory.find(i => i.id === productId)?.category) !== 'Kerupuk' && (
+                                        <>
+                                            {yieldUnit === 'kg' ? (
+                                                <span className="text-[10px] font-bold text-emerald-500 uppercase">({Math.round(batchCount * yieldPerBatch * 32)} pcs)</span>
+                                            ) : (
+                                                <span className="text-[10px] font-bold text-emerald-500 uppercase">({(batchCount * yieldPerBatch / 32).toFixed(2)} kg)</span>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </div>
@@ -521,7 +572,6 @@ export default function ProductionRecipes() {
                         </div>
                     </div>
 
-                    {/* Step 3: Raw Materials (Copied from Production.tsx) */}
                     <div className="border-t border-slate-200 mt-4 pt-4">
                         <h3 className="text-sm font-semibold text-slate-800 mb-3 flex items-center gap-2">
                             <Package size={16} className="text-emerald-500" />

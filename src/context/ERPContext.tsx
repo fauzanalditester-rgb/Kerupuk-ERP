@@ -141,6 +141,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteInventoryItem = useCallback((id: string) => {
     setInventory(prev => prev.filter(item => item.id !== id));
     setRecipes(prev => prev.filter(rec => rec.productId !== id));
+    setStockMovements(prev => prev.filter(m => m.itemId !== id));
   }, []);
 
   const updateInventoryItem = useCallback((id: string, updates: Partial<InventoryItem>) => {
@@ -258,39 +259,26 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const wo = workOrders.find(w => w.id === id);
     if (!wo) return;
 
-    // If order was completed, revert the stock changes
+    // If order was completed, revert the stock changes and CLEAN UP history
     if (wo.status === 'Completed') {
-      const reversalDate = formatDateWithTime();
-
-      // Revert finished goods (deduct)
-      updateInventoryStock(
-        wo.productId,
-        -wo.quantity,
-        'Out',
-        `Penghapusan WO ${wo.id} (Reversal)`,
-        wo.id,
-        reversalDate,
-        (wo.batchCount || 1) * (wo.yieldPerBatch || 0),
-        wo.yieldUnit
-      );
-
-      // Revert raw materials (restore)
-      wo.materialsUsed.forEach(mat => {
-        updateInventoryStock(
-          mat.materialId,
-          mat.amount,
-          'In',
-          `Penghapusan WO ${wo.id} (Reversal Material)`,
-          wo.id,
-          reversalDate,
-          mat.displayAmount,
-          mat.displayUnit
-        );
+      // 1. Revert Inventory Stock (Deduct Product, Restore Materials)
+      setInventory(prevInv => {
+        let updatedInv = [...prevInv];
+        // Deduct finished goods
+        updatedInv = updatedInv.map(i => i.id === wo.productId ? { ...i, stock: i.stock - wo.quantity } : i);
+        // Restore materials
+        wo.materialsUsed.forEach(mat => {
+          updatedInv = updatedInv.map(i => i.id === mat.materialId ? { ...i, stock: i.stock + mat.amount } : i);
+        });
+        return updatedInv;
       });
+
+      // 2. Remove associated movements from history
+      setStockMovements(prev => prev.filter(m => m.referenceId !== id));
     }
 
     setWorkOrders(prev => prev.filter(w => w.id !== id));
-  }, [workOrders, updateInventoryStock]);
+  }, [workOrders]);
 
   const createSalesOrder = useCallback((so: SalesOrder) => {
     setSalesOrders(prev => [so, ...prev]);
@@ -325,7 +313,9 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     so.items.forEach(item => {
       const inventoryItem = inventory.find(i => i.id === item.productId);
       const isKg = inventoryItem?.unit === 'kg';
-      const finalDeductionAmount = isKg ? Number((item.quantity / 32).toFixed(5)) : item.quantity;
+      const finalDeductionAmount = (isKg && inventoryItem?.category !== 'Kerupuk')
+        ? Number((item.quantity / 32).toFixed(5))
+        : item.quantity;
       updateInventoryStock(item.productId, -finalDeductionAmount, 'Out', `Penjualan ${so.id}`, so.id, so.date);
     });
 

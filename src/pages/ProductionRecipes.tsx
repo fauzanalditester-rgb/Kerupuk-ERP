@@ -54,7 +54,7 @@ export default function ProductionRecipes() {
         }
 
         if (currentCategory === 'Kerupuk') {
-            setYieldPerBatch(1);
+            setYieldPerBatch(1.25);
             setYieldUnit('kg');
         } else if (currentCategory === 'Pempek') {
             // Keep Pempek at its standard 2.3kg/batch
@@ -547,7 +547,7 @@ export default function ProductionRecipes() {
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">{yieldUnit}</span>
                                 {(isNewProduct ? newProductCategory : inventory.find(i => i.id === productId)?.category) === 'Kerupuk' && (
                                     <div className="absolute -top-6 right-0 bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase ring-1 ring-emerald-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-                                        Modul Khusus Kerupuk: 1 Batch = 1 KG
+                                        Modul Khusus Kerupuk: 1 Batch = 1.25 KG
                                     </div>
                                 )}
                             </div>

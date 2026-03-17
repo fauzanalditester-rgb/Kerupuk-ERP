@@ -114,12 +114,12 @@ export default function Production() {
     if (recipe) {
       // Set values from recipe
       setBatchCount(recipe.batchCount || 1);
-      setYieldPerBatch(recipe.yieldPerBatch || (category === 'Kerupuk' ? 1 : 2.3));
+      setYieldPerBatch(recipe.yieldPerBatch || (category === 'Kerupuk' ? 1.25 : 2.3));
       setYieldUnit(recipe.yieldUnit || 'kg');
     } else {
       // Fallback defaults if recipe is weirdly missing (though shouldn't happen based on finishedGoods filter)
       if (category === 'Kerupuk') {
-        setYieldPerBatch(1);
+        setYieldPerBatch(1.25);
         setYieldUnit('kg');
       } else {
         setYieldPerBatch(2.3);
@@ -868,7 +868,7 @@ export default function Production() {
                 </span>
                 {inventory.find(i => i.id === selectedProductId)?.category === 'Kerupuk' && (
                   <div className="absolute -top-6 right-0 bg-emerald-100 text-emerald-800 text-[10px] px-2 py-0.5 rounded font-bold uppercase ring-1 ring-emerald-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
-                    Modul Khusus Kerupuk: 1 Batch = 1 KG
+                    Modul Khusus Kerupuk: 1 Batch = 1.25 KG
                   </div>
                 )}
               </div>

@@ -34,6 +34,9 @@ export default function Sales() {
 
   // New SO State
   const [customerName, setCustomerName] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
   const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; unit: string }[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
@@ -206,9 +209,9 @@ export default function Sales() {
         addCustomer({
           id: `CUST-${Date.now()}`,
           name: customerName,
-          email: '',
-          phone: '',
-          address: '',
+          email: customerEmail,
+          phone: customerPhone,
+          address: customerAddress,
           totalOrders: 1,
           totalSpent: finalTotal
         });
@@ -221,6 +224,9 @@ export default function Sales() {
 
       // Reset all states
       setCustomerName('');
+      setCustomerEmail('');
+      setCustomerPhone('');
+      setCustomerAddress('');
       setSoItems([]);
       setDiscount(0);
       setPaymentMethod('Cash');
@@ -753,14 +759,25 @@ export default function Sales() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <label className="block text-sm font-medium text-slate-700 mb-1">Nama Pelanggan</label>
               <input
                 type="text"
                 required
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 value={customerName}
-                onChange={e => setCustomerName(e.target.value)}
+                onChange={e => {
+                  const val = e.target.value;
+                  setCustomerName(val);
+
+                  // Auto-fill existing customer info if found
+                  const existingCustomer = customers.find(c => c.name.toLowerCase() === val.toLowerCase());
+                  if (existingCustomer) {
+                    setCustomerEmail(existingCustomer.email || '');
+                    setCustomerPhone(existingCustomer.phone || '');
+                    setCustomerAddress(existingCustomer.address || '');
+                  }
+                }}
                 placeholder="misal: Warung Makan Padang"
                 list="customer-history"
               />
@@ -770,7 +787,7 @@ export default function Sales() {
                 ))}
               </datalist>
             </div>
-            <div>
+            <div className="col-span-2 sm:col-span-1">
               <label className="block text-sm font-medium text-slate-700 mb-1">Tanggal Transaksi</label>
               <input
                 type="date"
@@ -778,6 +795,37 @@ export default function Sales() {
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 value={soDate}
                 onChange={e => setSoDate(e.target.value)}
+              />
+            </div>
+
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email Pelanggan</label>
+              <input
+                type="email"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={customerEmail}
+                onChange={e => setCustomerEmail(e.target.value)}
+                placeholder="email@contoh.com"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-sm font-medium text-slate-700 mb-1">No. Telepon / WA</label>
+              <input
+                type="tel"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={customerPhone}
+                onChange={e => setCustomerPhone(e.target.value)}
+                placeholder="0812xxxx"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Alamat Lengkap</label>
+              <textarea
+                rows={2}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                value={customerAddress}
+                onChange={e => setCustomerAddress(e.target.value)}
+                placeholder="Jl. Contoh No. 123..."
               />
             </div>
           </div>
@@ -880,15 +928,53 @@ export default function Sales() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Diskon (%)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                value={discount || ''}
-                onChange={e => setDiscount(Number(e.target.value))}
-                placeholder="0"
-              />
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  value={discount || ''}
+                  onChange={e => setDiscount(Number(e.target.value))}
+                  placeholder="0"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
+              </div>
+              {(() => {
+                const subtotalFromList = soItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                const currentItemSubtotal = (currentQty > 0) ? (currentPrice || 0) * currentQty : 0;
+                const subtotal = subtotalFromList + currentItemSubtotal;
+
+                const discountAmount = Math.round((subtotal * (discount || 0)) / 100);
+                const finalTotal = subtotal - discountAmount;
+                if (discount > 0 && subtotal > 0) {
+                  return (
+                    <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {/* LABEL HASIL POTONGAN */}
+                      <div className="p-3 bg-white border-2 border-dashed border-emerald-200 rounded-xl flex justify-between items-center shadow-sm">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Hasil Potongan ({discount}%):</span>
+                          <span className="text-lg font-black text-emerald-600 leading-none">
+                            Rp {discountAmount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="h-8 w-px bg-slate-100 mx-2" />
+                        <div className="flex flex-col text-right">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Harga Akhir:</span>
+                          <span className="text-lg font-black text-slate-900 leading-none tracking-tighter">
+                            Rp {finalTotal.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-[9px] text-center font-bold text-slate-400 uppercase tracking-tighter">
+                        * Nilai di atas otomatis dihitung dari {discount}% subtotal
+                      </p>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
@@ -898,7 +984,7 @@ export default function Sales() {
                   onClick={() => setPaymentMethod('Cash')}
                   className={cn(
                     "py-2 rounded-lg border text-xs font-bold transition-all",
-                    paymentMethod === 'Cash' ? "bg-emerald-600 text-white border-emerald-600" : "bg-slate-50 text-slate-400 border-slate-100"
+                    paymentMethod === 'Cash' ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
                   )}
                 >
                   CASH
@@ -908,7 +994,7 @@ export default function Sales() {
                   onClick={() => setPaymentMethod('Debt')}
                   className={cn(
                     "py-2 rounded-lg border text-xs font-bold transition-all",
-                    paymentMethod === 'Debt' ? "bg-red-600 text-white border-red-600" : "bg-slate-50 text-slate-400 border-slate-100"
+                    paymentMethod === 'Debt' ? "bg-red-600 text-white border-red-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
                   )}
                 >
                   UTANG
@@ -916,6 +1002,56 @@ export default function Sales() {
               </div>
             </div>
           </div>
+
+          {/* Real-time Order Summary */}
+          {(() => {
+            const subtotalFromList = soItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            const currentItemSubtotal = (currentQty > 0) ? (currentPrice || 0) * currentQty : 0;
+            const subtotal = subtotalFromList + currentItemSubtotal;
+
+            const discountAmount = Math.round((subtotal * (discount || 0)) / 100);
+            const finalTotal = subtotal - discountAmount;
+
+            if (subtotal > 0) {
+              return (
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3 shadow-inner animate-in fade-in zoom-in duration-300">
+                  <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
+                    <span>Ringkasan Biaya</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-sm text-slate-300">
+                      <span>Total Harga (Subtotal)</span>
+                      <span>Rp {subtotal.toLocaleString()}</span>
+                    </div>
+                    {discount > 0 && (
+                      <>
+                        <div className="flex justify-between text-sm text-orange-400 font-medium italic">
+                          <span>Potongan Diskon ({discount}%)</span>
+                          <span>- Rp {discountAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-sm text-emerald-300 font-bold border-t border-slate-800 pt-1 mt-1">
+                          <span>Harga Setelah Diskon</span>
+                          <span>Rp {finalTotal.toLocaleString()}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                  <div className="pt-3 border-t-2 border-emerald-500/30 flex justify-between items-center text-white">
+                    <div>
+                      <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter block leading-none mb-1">Total yang Harus Dibayar</span>
+                      <span className="text-sm font-bold">TOTAL TAGIHAN:</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-black text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.4)]">
+                        Rp {finalTotal.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           <div className="flex items-center gap-2 py-2 bg-emerald-50/50 px-3 rounded-lg border border-emerald-100">
             <input

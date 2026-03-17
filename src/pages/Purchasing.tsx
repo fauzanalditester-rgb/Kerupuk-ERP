@@ -48,6 +48,11 @@ export default function Purchasing() {
   const [poItems, setPoItems] = useState<{ materialId: string; materialName: string; quantity: number; cost: number; unit: string; isNew?: boolean }[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
   const [poDate, setPoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 14); // Default 2 weeks for suppliers
+    return d.toISOString().split('T')[0];
+  });
 
   // Temporary Item state for adder
   const [selectedMaterialId, setSelectedMaterialId] = useState('');
@@ -200,7 +205,9 @@ export default function Purchasing() {
         items: finalItems,
         totalAmount: totalAmount,
         status: 'Ordered',
-        paymentMethod: paymentMethod
+        paymentMethod: paymentMethod,
+        dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
+        isPaid: paymentMethod === 'Cash'
       };
 
       createPurchaseOrder(newPO);
@@ -211,6 +218,11 @@ export default function Purchasing() {
       setPoItems([]);
       setPaymentMethod('Cash');
       setPoDate(new Date().toISOString().split('T')[0]);
+      setDueDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 14);
+        return d.toISOString().split('T')[0];
+      });
     }
   };
 
@@ -746,6 +758,17 @@ export default function Purchasing() {
                 Debt (Utang)
               </button>
             </div>
+            {paymentMethod === 'Debt' && (
+              <div className="mt-3">
+                <label className="block text-[10px] font-bold text-amber-600 uppercase mb-1">Jatuh Tempo Pembayaran</label>
+                <input
+                  type="date"
+                  className="w-full px-3 py-2 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50/30 text-xs font-bold"
+                  value={dueDate}
+                  onChange={e => setDueDate(e.target.value)}
+                />
+              </div>
+            )}
           </div>
 
           <div className="pt-4 flex gap-3">

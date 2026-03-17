@@ -41,6 +41,11 @@ export default function Sales() {
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
   const [soDate, setSoDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dueDate, setDueDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  });
   const [autoComplete, setAutoComplete] = useState(true);
 
   // Current item being added
@@ -198,7 +203,9 @@ export default function Sales() {
         totalAmount: finalTotal,
         discount: discount,
         paymentMethod: paymentMethod,
-        status: 'Processing'
+        status: 'Processing',
+        dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
+        isPaid: paymentMethod === 'Cash'
       };
 
       createSalesOrder(newSO);
@@ -231,6 +238,11 @@ export default function Sales() {
       setDiscount(0);
       setPaymentMethod('Cash');
       setSoDate(new Date().toISOString().split('T')[0]);
+      setDueDate(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        return d.toISOString().split('T')[0];
+      });
       setCurrentItemId('');
       setCurrentQty(0);
       setCurrentPrice(0);
@@ -1000,6 +1012,20 @@ export default function Sales() {
                   UTANG
                 </button>
               </div>
+              {paymentMethod === 'Debt' && (
+                <div className="mt-3 animate-in fade-in slide-in-from-top-1">
+                  <label className="block text-[10px] font-black text-rose-600 uppercase mb-1 tracking-widest">
+                    Tanggal Jatuh Tempo (UTANG)
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full px-3 py-2 border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-rose-50/30 text-xs font-bold"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                  />
+                  <p className="text-[9px] text-rose-400 mt-1 italic">* Pesanan akan muncul di peringatan Finance jika belum lunas.</p>
+                </div>
+              )}
             </div>
           </div>
 

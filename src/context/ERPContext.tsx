@@ -41,11 +41,15 @@ interface ERPContextType {
   updateRecipe: (id: string, updatedRecipe: Recipe) => void;
   deleteRecipe: (id: string) => void;
   deleteWorkOrder: (id: string) => void;
+  payDebt: (poId: string, amount: number) => void;
+  collectPayment: (soId: string, amount: number) => void;
 
   // Stats
   totalRevenue: number;
   totalExpenses: number;
   netProfit: number;
+  totalReceivables: number;
+  totalPayables: number;
   lowStockItems: InventoryItem[];
 }
 
@@ -112,9 +116,13 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => { localStorage.setItem('erp_v6_recipes', JSON.stringify(recipes)); }, [recipes]);
 
   // Derived Stats
-  const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Income').reduce((acc, t) => acc + t.amount, 0), [transactions]);
-  const totalExpenses = useMemo(() => transactions.filter(t => t.type === 'Expense').reduce((acc, t) => acc + t.amount, 0), [transactions]);
+  const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Income' && !t.isDebtPayment).reduce((acc, t) => acc + t.amount, 0), [transactions]);
+  const totalExpenses = useMemo(() => transactions.filter(t => t.type === 'Expense' && !t.isDebtPayment).reduce((acc, t) => acc + t.amount, 0), [transactions]);
   const netProfit = useMemo(() => totalRevenue - totalExpenses, [totalRevenue, totalExpenses]);
+
+  const totalReceivables = useMemo(() => salesOrders.filter(so => so.paymentMethod === 'Debt' && !so.isPaid).reduce((acc, so) => acc + so.totalAmount, 0), [salesOrders]);
+  const totalPayables = useMemo(() => purchaseOrders.filter(po => po.paymentMethod === 'Debt' && !po.isPaid).reduce((acc, po) => acc + po.totalAmount, 0), [purchaseOrders]);
+
   const lowStockItems = useMemo(() => inventory.filter(item => item.stock <= item.minStock), [inventory]);
 
   // Actions
@@ -326,16 +334,17 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: so.paymentMethod === 'Debt' ? 'Piutang Usaha' : 'Penjualan',
       amount: so.totalAmount,
       date: so.date,
-      referenceId: so.id
+      referenceId: so.id,
+      isDebtPayment: false
     };
     setTransactions(prev => [transaction, ...prev]);
 
     // 3. Update SO Status
-    setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, status: 'Completed' } : s));
+    setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, status: 'Completed', isPaid: so.paymentMethod === 'Cash' } : s));
   }, [inventory, salesOrders, updateInventoryStock]);
 
   const createPurchaseOrder = useCallback((po: PurchaseOrder) => {
-    setPurchaseOrders(prev => [po, ...prev]);
+    setPurchaseOrders(prev => [{ ...po, isPaid: po.paymentMethod === 'Cash' }, ...prev]);
   }, []);
 
   const receivePurchaseOrder = useCallback((id: string, poObj?: PurchaseOrder) => {
@@ -354,12 +363,13 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       category: po.paymentMethod === 'Debt' ? 'Hutang Usaha' : 'Pembelian',
       amount: po.totalAmount,
       date: po.date,
-      referenceId: po.id
+      referenceId: po.id,
+      isDebtPayment: false
     };
     setTransactions(prev => [transaction, ...prev]);
 
     // 3. Update PO Status
-    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received' } : p));
+    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', isPaid: po.paymentMethod === 'Cash' } : p));
   }, [purchaseOrders, updateInventoryStock]);
 
   const addCustomer = useCallback((customer: Customer) => {
@@ -385,6 +395,40 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteRecipe = useCallback((id: string) => {
     setRecipes(prev => prev.filter(r => r.id !== id));
   }, []);
+
+  const payDebt = useCallback((poId: string, amount: number) => {
+    const po = purchaseOrders.find(p => p.id === poId);
+    if (!po) return;
+
+    const transaction: Transaction = {
+      id: `TRX-${Date.now()}`,
+      type: 'Expense',
+      category: 'Pelunasan Hutang',
+      amount: amount,
+      date: new Date().toISOString().split('T')[0],
+      referenceId: poId,
+      isDebtPayment: true
+    };
+    setTransactions(prev => [transaction, ...prev]);
+    setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, isPaid: true } : p));
+  }, [purchaseOrders]);
+
+  const collectPayment = useCallback((soId: string, amount: number) => {
+    const so = salesOrders.find(s => s.id === soId);
+    if (!so) return;
+
+    const transaction: Transaction = {
+      id: `TRX-${Date.now()}`,
+      type: 'Income',
+      category: 'Pelunasan Piutang',
+      amount: amount,
+      date: new Date().toISOString().split('T')[0],
+      referenceId: soId,
+      isDebtPayment: true
+    };
+    setTransactions(prev => [transaction, ...prev]);
+    setSalesOrders(prev => prev.map(s => s.id === soId ? { ...s, isPaid: true } : s));
+  }, [salesOrders]);
 
   const contextValue = useMemo(() => ({
     inventory,
@@ -415,9 +459,13 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateRecipe,
     deleteRecipe,
     deleteWorkOrder,
+    payDebt,
+    collectPayment,
     totalRevenue,
     totalExpenses,
     netProfit,
+    totalReceivables,
+    totalPayables,
     lowStockItems
   }), [
     inventory, workOrders, salesOrders, purchaseOrders, transactions,
@@ -426,8 +474,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adjustStock, createWorkOrder, completeWorkOrder, createSalesOrder,
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
-    updateRecipe, deleteRecipe, deleteWorkOrder, totalRevenue, totalExpenses,
-    netProfit, lowStockItems
+    updateRecipe, deleteRecipe, deleteWorkOrder, payDebt, collectPayment,
+    totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems
   ]);
 
   return (

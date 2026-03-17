@@ -43,6 +43,8 @@ export interface SalesOrder {
   discount?: number; // In percentage
   paymentMethod: PaymentMethod;
   status: 'Processing' | 'Shipped' | 'Completed';
+  dueDate?: string;
+  isPaid?: boolean;
 }
 
 export type PaymentMethod = 'Cash' | 'Debt';
@@ -55,6 +57,8 @@ export interface PurchaseOrder {
   totalAmount: number;
   status: 'Ordered' | 'Pending' | 'Received';
   paymentMethod: PaymentMethod;
+  dueDate?: string;
+  isPaid?: boolean;
 }
 
 export interface Transaction {
@@ -64,6 +68,7 @@ export interface Transaction {
   amount: number;
   date: string;
   referenceId?: string; // Link to SO or PO
+  isDebtPayment?: boolean;
 }
 
 export interface Customer {

@@ -149,25 +149,49 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         const { data, error } = await supabase.from('erp_state').select('*');
         if (error) throw error;
+        
+        // Map cloud data
+        const cloudData: Record<string, any> = {};
+        let hasRealData = false;
+        
         if (data && data.length > 0) {
           data.forEach((row) => {
-            if (row.key === 'erp_v6_inventory') setInventory(row.value);
-            if (row.key === 'erp_v6_workOrders') setWorkOrders(row.value);
-            if (row.key === 'erp_v6_salesOrders') setSalesOrders(row.value);
-            if (row.key === 'erp_v6_purchaseOrders') setPurchaseOrders(row.value);
-            if (row.key === 'erp_v6_transactions') setTransactions(row.value);
-            if (row.key === 'erp_v6_customers') setCustomers(row.value);
-            if (row.key === 'erp_v6_employees') setEmployees(row.value);
-            if (row.key === 'erp_v6_stockMovements') setStockMovements(row.value);
-            if (row.key === 'erp_v6_recipes') setRecipes(row.value);
+            cloudData[row.key] = row.value;
+            if (row.value && Array.isArray(row.value) && row.value.length > 0) {
+              hasRealData = true;
+            }
           });
+        }
+
+        if (hasRealData) {
+          // Cloud has real data. Overwrite local.
+          if (cloudData['erp_v6_inventory']) setInventory(cloudData['erp_v6_inventory']);
+          if (cloudData['erp_v6_workOrders']) setWorkOrders(cloudData['erp_v6_workOrders']);
+          if (cloudData['erp_v6_salesOrders']) setSalesOrders(cloudData['erp_v6_salesOrders']);
+          if (cloudData['erp_v6_purchaseOrders']) setPurchaseOrders(cloudData['erp_v6_purchaseOrders']);
+          if (cloudData['erp_v6_transactions']) setTransactions(cloudData['erp_v6_transactions']);
+          if (cloudData['erp_v6_customers']) setCustomers(cloudData['erp_v6_customers']);
+          if (cloudData['erp_v6_employees']) setEmployees(cloudData['erp_v6_employees']);
+          if (cloudData['erp_v6_stockMovements']) setStockMovements(cloudData['erp_v6_stockMovements']);
+          if (cloudData['erp_v6_recipes']) setRecipes(cloudData['erp_v6_recipes']);
+        } else {
+          // Cloud is empty (or new). Force push local data directly so it doesn't get wiped!
+          if (inventory.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
+          if (workOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
+          if (salesOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
+          if (purchaseOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
+          if (transactions.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
+          if (customers.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
+          if (employees.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
+          if (stockMovements.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
+          if (recipes.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
         }
       } catch (err) {
         console.error('Failed to load from Supabase:', err);
       }
     };
     fetchFromSupabase();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Derived Stats
   const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Income' && !t.isDebtPayment).reduce((acc, t) => acc + t.amount, 0), [transactions]);

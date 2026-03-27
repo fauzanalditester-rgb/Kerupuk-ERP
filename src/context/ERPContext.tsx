@@ -228,8 +228,19 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const totalExpenses = useMemo(() => transactions.filter(t => t.type === 'Expense' && !t.isDebtPayment).reduce((acc, t) => acc + t.amount, 0), [transactions]);
   const netProfit = useMemo(() => totalRevenue - totalExpenses, [totalRevenue, totalExpenses]);
 
-  const totalReceivables = useMemo(() => salesOrders.filter(so => so.paymentMethod === 'Debt' && !so.isPaid).reduce((acc, so) => acc + so.totalAmount, 0), [salesOrders]);
-  const totalPayables = useMemo(() => purchaseOrders.filter(po => po.paymentMethod === 'Debt' && !po.isPaid).reduce((acc, po) => acc + po.totalAmount, 0), [purchaseOrders]);
+  const totalReceivables = useMemo(() => {
+    return salesOrders.filter(so => so.paymentMethod === 'Debt' && !so.isPaid).reduce((acc, so) => {
+      const paid = transactions.filter(t => t.referenceId === so.id && t.isDebtPayment && t.type === 'Income').reduce((s, t) => s + t.amount, 0);
+      return acc + (so.totalAmount - paid);
+    }, 0);
+  }, [salesOrders, transactions]);
+
+  const totalPayables = useMemo(() => {
+    return purchaseOrders.filter(po => po.paymentMethod === 'Debt' && !po.isPaid).reduce((acc, po) => {
+      const paid = transactions.filter(t => t.referenceId === po.id && t.isDebtPayment && t.type === 'Expense').reduce((s, t) => s + t.amount, 0);
+      return acc + (po.totalAmount - paid);
+    }, 0);
+  }, [purchaseOrders, transactions]);
 
   const lowStockItems = useMemo(() => inventory.filter(item => item.stock <= item.minStock), [inventory]);
 
@@ -517,9 +528,19 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: poId,
       isDebtPayment: true
     };
+    
+    // Calculate total paid including this new amount
+    const previouslyPaid = transactions
+      .filter(t => t.referenceId === poId && t.isDebtPayment && t.type === 'Expense')
+      .reduce((s, t) => s + t.amount, 0);
+    const totalPaid = previouslyPaid + amount;
+    const isNowPaid = totalPaid >= po.totalAmount;
+
     setTransactions(prev => [transaction, ...prev]);
-    setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, isPaid: true } : p));
-  }, [purchaseOrders]);
+    if (isNowPaid) {
+      setPurchaseOrders(prev => prev.map(p => p.id === poId ? { ...p, isPaid: true } : p));
+    }
+  }, [purchaseOrders, transactions]);
 
   const collectPayment = useCallback((soId: string, amount: number) => {
     const so = salesOrders.find(s => s.id === soId);
@@ -534,9 +555,19 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       referenceId: soId,
       isDebtPayment: true
     };
+
+    // Calculate total paid including this new amount
+    const previouslyPaid = transactions
+      .filter(t => t.referenceId === soId && t.isDebtPayment && t.type === 'Income')
+      .reduce((s, t) => s + t.amount, 0);
+    const totalPaid = previouslyPaid + amount;
+    const isNowPaid = totalPaid >= so.totalAmount;
+
     setTransactions(prev => [transaction, ...prev]);
-    setSalesOrders(prev => prev.map(s => s.id === soId ? { ...s, isPaid: true } : s));
-  }, [salesOrders]);
+    if (isNowPaid) {
+      setSalesOrders(prev => prev.map(s => s.id === soId ? { ...s, isPaid: true } : s));
+    }
+  }, [salesOrders, transactions]);
 
   const contextValue = useMemo(() => ({
     inventory,

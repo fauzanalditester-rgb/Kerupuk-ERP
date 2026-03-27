@@ -46,6 +46,19 @@ export default function Finance() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [referenceId, setReferenceId] = useState('');
 
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; type: 'pay' | 'collect'; id: string; name: string; remainingAmount: number }>({ isOpen: false, type: 'pay', id: '', name: '', remainingAmount: 0 });
+  const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
+
+  const getRemainingPayable = (poId: string, totalAmount: number) => {
+    const paid = transactions.filter(t => t.referenceId === poId && t.type === 'Expense' && t.isDebtPayment).reduce((s, t) => s + t.amount, 0);
+    return Math.max(0, totalAmount - paid);
+  };
+
+  const getRemainingReceivable = (soId: string, totalAmount: number) => {
+    const paid = transactions.filter(t => t.referenceId === soId && t.type === 'Income' && t.isDebtPayment).reduce((s, t) => s + t.amount, 0);
+    return Math.max(0, totalAmount - paid);
+  };
+
   // === DERIVED DATA ===
   const balanceSheet = useMemo(() => {
     const inventoryValue = inventory.reduce((s, i) => s + (i.stock * i.price), 0);
@@ -117,8 +130,8 @@ export default function Finance() {
       });
       return { d07, d830, d30, total: d07 + d830 + d30 };
     };
-    const unpaidSO = salesOrders.filter(so => so.paymentMethod === 'Debt' && !so.isPaid);
-    const unpaidPO = purchaseOrders.filter(po => po.paymentMethod === 'Debt' && !po.isPaid);
+    const unpaidSO = salesOrders.filter(so => so.paymentMethod === 'Debt' && !so.isPaid).map(so => ({ ...so, type: 'so' as const, totalAmount: getRemainingReceivable(so.id, so.totalAmount) }));
+    const unpaidPO = purchaseOrders.filter(po => po.paymentMethod === 'Debt' && !po.isPaid).map(po => ({ ...po, type: 'po' as const, totalAmount: getRemainingPayable(po.id, po.totalAmount) }));
     return { piutang: calc(unpaidSO), hutang: calc(unpaidPO) };
   }, [salesOrders, purchaseOrders]);
 
@@ -230,8 +243,8 @@ export default function Finance() {
                   <div key={so.id} className="flex items-center justify-between text-xs">
                     <span className="font-bold text-slate-800">{so.customerName}</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700">{fmtRp(so.totalAmount)}</span>
-                      <button onClick={()=>collectPayment(so.id, so.totalAmount)} className="px-2 py-1 bg-emerald-500 text-white rounded-md text-[10px] font-bold hover:bg-emerald-600">Tagih</button>
+                      <span className="font-bold text-slate-700">{fmtRp(getRemainingReceivable(so.id, so.totalAmount))}</span>
+                      <button onClick={()=>{setPaymentModal({isOpen:true, type:'collect', id:so.id, name:so.customerName, remainingAmount:getRemainingReceivable(so.id, so.totalAmount)});setPaymentAmount(getRemainingReceivable(so.id, so.totalAmount));}} className="px-2 py-1 bg-emerald-500 text-white rounded-md text-[10px] font-bold hover:bg-emerald-600">Tagih</button>
                     </div>
                   </div>
                 ))}
@@ -239,8 +252,8 @@ export default function Finance() {
                   <div key={po.id} className="flex items-center justify-between text-xs">
                     <span className="font-bold text-slate-800">{po.supplierName}</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-700">{fmtRp(po.totalAmount)}</span>
-                      <button onClick={()=>payDebt(po.id, po.totalAmount)} className="px-2 py-1 bg-rose-500 text-white rounded-md text-[10px] font-bold hover:bg-rose-600">Bayar</button>
+                      <span className="font-bold text-slate-700">{fmtRp(getRemainingPayable(po.id, po.totalAmount))}</span>
+                      <button onClick={()=>{setPaymentModal({isOpen:true, type:'pay', id:po.id, name:po.supplierName, remainingAmount:getRemainingPayable(po.id, po.totalAmount)});setPaymentAmount(getRemainingPayable(po.id, po.totalAmount));}} className="px-2 py-1 bg-rose-500 text-white rounded-md text-[10px] font-bold hover:bg-rose-600">Bayar</button>
                     </div>
                   </div>
                 ))}
@@ -255,7 +268,7 @@ export default function Finance() {
                   <div key={item.id} className="flex items-center justify-between text-xs">
                     <span className="font-bold text-slate-800">{item.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="font-bold text-slate-700">{fmtRp(item.amount)}</span>
+                      <span className="font-bold text-slate-700">{fmtRp(item.type === 'Piutang' ? getRemainingReceivable(item.id, item.amount) : getRemainingPayable(item.id, item.amount))}</span>
                       <span className="text-[10px] text-slate-500">{item.dueDate}</span>
                       <span className={cn("text-[10px] font-black uppercase", item.type === 'Piutang' ? 'text-blue-600' : 'text-orange-600')}>{item.type}</span>
                     </div>
@@ -431,12 +444,13 @@ export default function Finance() {
         {/* === RECEIVABLES TAB === */}
         {activeTab === 'receivables' && (
           <div className="overflow-x-auto">
+            <div className="p-4 border-b border-slate-100"><div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/><input type="text" placeholder="Cari pelanggan..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/></div></div>
             <table className="w-full text-left">
               <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                 <tr><th className="px-6 py-4">Pelanggan / SO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Tagihan</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {salesOrders.filter(so=>so.paymentMethod==='Debt'&&!so.isPaid).sort((a,b)=>{
+                {salesOrders.filter(so=>so.paymentMethod==='Debt'&&!so.isPaid && (!searchQuery || so.customerName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
                   const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
                   const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
                   if(aO!==bO)return aO-bO;
@@ -449,8 +463,8 @@ export default function Finance() {
                       <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{so.customerName}</span><span className="text-[10px] text-blue-600 font-bold uppercase">{so.id}</span></div></td>
                       <td className="px-6 py-4"><div className="flex items-center gap-1.5 text-xs"><Calendar size={12} className={isOverdue?"text-rose-500":isNear?"text-amber-500":"text-slate-400"}/><span className={cn(isOverdue&&"text-rose-600 font-bold",isNear&&"text-amber-600 font-bold")}>{so.dueDate||'Belum diatur'}</span></div></td>
                       <td className="px-6 py-4">{isOverdue?(<div className="flex items-center gap-1 text-rose-600"><AlertCircle size={14}/><span className="text-[10px] font-black uppercase">Terlambat</span></div>):isNear?(<div className="flex items-center gap-1 text-amber-600"><Clock size={14}/><span className="text-[10px] font-black uppercase">H-{diffDays(so.dueDate!)}</span></div>):(<div className="flex items-center gap-1 text-emerald-500"><CheckCircle2 size={14}/><span className="text-[10px] font-black uppercase">Aman</span></div>)}</td>
-                      <td className="px-6 py-4 text-sm font-black text-slate-900 text-right">{fmtRp(so.totalAmount)}</td>
-                      <td className="px-6 py-4 text-center"><button onClick={()=>collectPayment(so.id, so.totalAmount)} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm shadow-emerald-100">Klik Pelunasan</button></td>
+                      <td className="px-6 py-4 text-sm font-black text-slate-900 text-right">{fmtRp(getRemainingReceivable(so.id, so.totalAmount))}</td>
+                      <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'collect', id:so.id, name:so.customerName, remainingAmount:getRemainingReceivable(so.id, so.totalAmount)});setPaymentAmount(getRemainingReceivable(so.id, so.totalAmount));}} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm shadow-emerald-100">Bayar Cicilan/Lunas</button></td>
                     </tr>
                   );
                 })}
@@ -462,12 +476,13 @@ export default function Finance() {
         {/* === PAYABLES TAB === */}
         {activeTab === 'payables' && (
           <div className="overflow-x-auto">
+            <div className="p-4 border-b border-slate-100"><div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/><input type="text" placeholder="Cari supplier..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/></div></div>
             <table className="w-full text-left">
               <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                 <tr><th className="px-6 py-4">Supplier / PO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Urgensi</th><th className="px-6 py-4 text-right">Hutang</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {purchaseOrders.filter(po=>po.paymentMethod==='Debt'&&!po.isPaid).sort((a,b)=>{
+                {purchaseOrders.filter(po=>po.paymentMethod==='Debt'&&!po.isPaid && (!searchQuery || po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
                   const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
                   const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
                   if(aO!==bO)return aO-bO;
@@ -480,8 +495,8 @@ export default function Finance() {
                       <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{po.supplierName}</span><span className="text-[10px] text-orange-600 font-bold uppercase">{po.id}</span></div></td>
                       <td className="px-6 py-4 text-xs font-medium">{po.dueDate||'N/A'}</td>
                       <td className="px-6 py-4">{isOverdue?(<div className={cn("px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-rose-100 text-rose-700")}>Sangat Penting</div>):isNear?(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-amber-100 text-amber-700">Segera Bayar</div>):(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-slate-100 text-slate-600">Normal</div>)}</td>
-                      <td className="px-6 py-4 text-sm font-black text-rose-600 text-right">{fmtRp(po.totalAmount)}</td>
-                      <td className="px-6 py-4 text-center"><button onClick={()=>payDebt(po.id, po.totalAmount)} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Bayar Lunas</button></td>
+                      <td className="px-6 py-4 text-sm font-black text-rose-600 text-right">{fmtRp(getRemainingPayable(po.id, po.totalAmount))}</td>
+                      <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'pay', id:po.id, name:po.supplierName, remainingAmount:getRemainingPayable(po.id, po.totalAmount)});setPaymentAmount(getRemainingPayable(po.id, po.totalAmount));}} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Bayar Cicilan/Lunas</button></td>
                     </tr>
                   );
                 })}
@@ -489,6 +504,40 @@ export default function Finance() {
             </table>
           </div>
         )}
+
+        
+      <Modal isOpen={paymentModal.isOpen} onClose={() => setPaymentModal(prev => ({ ...prev, isOpen: false }))} title={paymentModal.type === 'pay' ? 'Bayar Hutang' : 'Terima Pembayaran Piutang'}>
+        <form onSubmit={e => {
+          e.preventDefault();
+          const amt = Number(paymentAmount);
+          if (amt > 0 && amt <= paymentModal.remainingAmount) {
+            if (paymentModal.type === 'pay') {
+              payDebt(paymentModal.id, amt);
+            } else {
+              collectPayment(paymentModal.id, amt);
+            }
+            setPaymentModal(prev => ({ ...prev, isOpen: false }));
+            setPaymentAmount('');
+          }
+        }} className="space-y-4">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <p className="text-xs text-slate-500 font-bold uppercase mb-1">{paymentModal.type === 'pay' ? 'Supplier / PO' : 'Pelanggan / SO'}</p>
+            <p className="text-sm font-black text-slate-900">{paymentModal.name} <span className="text-xs font-bold text-blue-600">({paymentModal.id})</span></p>
+            <div className="mt-3 flex justify-between items-center border-t border-slate-200 pt-3">
+              <span className="text-xs font-bold text-slate-600">Sisa Tagihan:</span>
+              <span className="text-sm font-black text-rose-600">{fmtRp(paymentModal.remainingAmount)}</span>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">Jumlah Pembayaran</label>
+            <input type="number" required max={paymentModal.remainingAmount} min={1} value={paymentAmount} onChange={e => setPaymentAmount(Number(e.target.value))} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" placeholder="Masukkan nominal..." />
+          </div>
+          <div className="flex gap-3 justify-end pt-4 border-t border-slate-100">
+            <button type="button" onClick={() => setPaymentModal(prev => ({ ...prev, isOpen: false }))} className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-700">Batal</button>
+            <button type="submit" disabled={!paymentAmount || paymentAmount <= 0 || paymentAmount > paymentModal.remainingAmount} className="px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-black transition-all disabled:opacity-50">Proses</button>
+          </div>
+        </form>
+      </Modal>
 
         {/* === REPORTS/BALANCE SHEET TAB === */}
         {activeTab === 'reports' && (

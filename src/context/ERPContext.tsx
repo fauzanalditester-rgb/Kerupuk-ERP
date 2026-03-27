@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { InventoryItem, WorkOrder, SalesOrder, PurchaseOrder, Transaction, Customer, Employee, StockMovement, Recipe } from '../lib/types';
+import { supabase } from '../lib/supabase';
 
 // Helper for consistent date-time formatting
 const formatDateWithTime = (dateStr?: string) => {
@@ -104,16 +105,69 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => loadState('erp_v6_stockMovements', initialStockMovements));
   const [recipes, setRecipes] = useState<Recipe[]>(() => loadState('erp_v6_recipes', initialRecipes));
 
-  // Persist to localStorage whenever state changes
-  useEffect(() => { localStorage.setItem('erp_v6_inventory', JSON.stringify(inventory)); }, [inventory]);
-  useEffect(() => { localStorage.setItem('erp_v6_workOrders', JSON.stringify(workOrders)); }, [workOrders]);
-  useEffect(() => { localStorage.setItem('erp_v6_salesOrders', JSON.stringify(salesOrders)); }, [salesOrders]);
-  useEffect(() => { localStorage.setItem('erp_v6_purchaseOrders', JSON.stringify(purchaseOrders)); }, [purchaseOrders]);
-  useEffect(() => { localStorage.setItem('erp_v6_transactions', JSON.stringify(transactions)); }, [transactions]);
-  useEffect(() => { localStorage.setItem('erp_v6_customers', JSON.stringify(customers)); }, [customers]);
-  useEffect(() => { localStorage.setItem('erp_v6_employees', JSON.stringify(employees)); }, [employees]);
-  useEffect(() => { localStorage.setItem('erp_v6_stockMovements', JSON.stringify(stockMovements)); }, [stockMovements]);
-  useEffect(() => { localStorage.setItem('erp_v6_recipes', JSON.stringify(recipes)); }, [recipes]);
+  // Persist to localStorage and Supabase whenever state changes
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_inventory', JSON.stringify(inventory)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_inventory', value: inventory }).then(({error}) => { if (error) console.error(error) });
+  }, [inventory]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_workOrders', JSON.stringify(workOrders)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_workOrders', value: workOrders }).then(({error}) => { if (error) console.error(error) });
+  }, [workOrders]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_salesOrders', JSON.stringify(salesOrders)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_salesOrders', value: salesOrders }).then(({error}) => { if (error) console.error(error) });
+  }, [salesOrders]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_purchaseOrders', JSON.stringify(purchaseOrders)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_purchaseOrders', value: purchaseOrders }).then(({error}) => { if (error) console.error(error) });
+  }, [purchaseOrders]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_transactions', JSON.stringify(transactions)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_transactions', value: transactions }).then(({error}) => { if (error) console.error(error) });
+  }, [transactions]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_customers', JSON.stringify(customers)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_customers', value: customers }).then(({error}) => { if (error) console.error(error) });
+  }, [customers]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_employees', JSON.stringify(employees)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_employees', value: employees }).then(({error}) => { if (error) console.error(error) });
+  }, [employees]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_stockMovements', JSON.stringify(stockMovements)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_stockMovements', value: stockMovements }).then(({error}) => { if (error) console.error(error) });
+  }, [stockMovements]);
+  useEffect(() => { 
+    localStorage.setItem('erp_v6_recipes', JSON.stringify(recipes)); 
+    supabase.from('erp_state').upsert({ key: 'erp_v6_recipes', value: recipes }).then(({error}) => { if (error) console.error(error) });
+  }, [recipes]);
+
+  // Load from Supabase on mount
+  useEffect(() => {
+    const fetchFromSupabase = async () => {
+      try {
+        const { data, error } = await supabase.from('erp_state').select('*');
+        if (error) throw error;
+        if (data && data.length > 0) {
+          data.forEach((row) => {
+            if (row.key === 'erp_v6_inventory') setInventory(row.value);
+            if (row.key === 'erp_v6_workOrders') setWorkOrders(row.value);
+            if (row.key === 'erp_v6_salesOrders') setSalesOrders(row.value);
+            if (row.key === 'erp_v6_purchaseOrders') setPurchaseOrders(row.value);
+            if (row.key === 'erp_v6_transactions') setTransactions(row.value);
+            if (row.key === 'erp_v6_customers') setCustomers(row.value);
+            if (row.key === 'erp_v6_employees') setEmployees(row.value);
+            if (row.key === 'erp_v6_stockMovements') setStockMovements(row.value);
+            if (row.key === 'erp_v6_recipes') setRecipes(row.value);
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load from Supabase:', err);
+      }
+    };
+    fetchFromSupabase();
+  }, []);
 
   // Derived Stats
   const totalRevenue = useMemo(() => transactions.filter(t => t.type === 'Income' && !t.isDebtPayment).reduce((acc, t) => acc + t.amount, 0), [transactions]);

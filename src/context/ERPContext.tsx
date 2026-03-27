@@ -152,40 +152,70 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Map cloud data
         const cloudData: Record<string, any> = {};
-        let hasRealData = false;
-        
         if (data && data.length > 0) {
           data.forEach((row) => {
             cloudData[row.key] = row.value;
-            if (row.value && Array.isArray(row.value) && row.value.length > 0) {
-              hasRealData = true;
-            }
           });
         }
 
-        if (hasRealData) {
-          // Cloud has real data. Overwrite local.
-          if (cloudData['erp_v6_inventory']) setInventory(cloudData['erp_v6_inventory']);
-          if (cloudData['erp_v6_workOrders']) setWorkOrders(cloudData['erp_v6_workOrders']);
-          if (cloudData['erp_v6_salesOrders']) setSalesOrders(cloudData['erp_v6_salesOrders']);
-          if (cloudData['erp_v6_purchaseOrders']) setPurchaseOrders(cloudData['erp_v6_purchaseOrders']);
-          if (cloudData['erp_v6_transactions']) setTransactions(cloudData['erp_v6_transactions']);
-          if (cloudData['erp_v6_customers']) setCustomers(cloudData['erp_v6_customers']);
-          if (cloudData['erp_v6_employees']) setEmployees(cloudData['erp_v6_employees']);
-          if (cloudData['erp_v6_stockMovements']) setStockMovements(cloudData['erp_v6_stockMovements']);
-          if (cloudData['erp_v6_recipes']) setRecipes(cloudData['erp_v6_recipes']);
-        } else {
-          // Cloud is empty (or new). Force push local data directly so it doesn't get wiped!
-          if (inventory.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
-          if (workOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
-          if (salesOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
-          if (purchaseOrders.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
-          if (transactions.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
-          if (customers.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
-          if (employees.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
-          if (stockMovements.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
-          if (recipes.length > 0) supabase.from('erp_state').upsert({ key: 'erp_v6_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
+        // Per-key Sync Logic:
+        // Jika Cloud memiliki data (> 0), tarik datanya untuk menggantikan Local.
+        // Jika Cloud kosong, tapi Local punya data (> 0), jangan hapus data Local! Unggah ke Cloud.
+
+        if (cloudData['erp_v6_inventory'] && cloudData['erp_v6_inventory'].length > 0) {
+          setInventory(cloudData['erp_v6_inventory']);
+        } else if (inventory.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
         }
+
+        if (cloudData['erp_v6_workOrders'] && cloudData['erp_v6_workOrders'].length > 0) {
+          setWorkOrders(cloudData['erp_v6_workOrders']);
+        } else if (workOrders.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_salesOrders'] && cloudData['erp_v6_salesOrders'].length > 0) {
+          setSalesOrders(cloudData['erp_v6_salesOrders']);
+        } else if (salesOrders.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_purchaseOrders'] && cloudData['erp_v6_purchaseOrders'].length > 0) {
+          setPurchaseOrders(cloudData['erp_v6_purchaseOrders']);
+        } else if (purchaseOrders.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_transactions'] && cloudData['erp_v6_transactions'].length > 0) {
+          setTransactions(cloudData['erp_v6_transactions']);
+        } else if (transactions.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_customers'] && cloudData['erp_v6_customers'].length > 0) {
+          setCustomers(cloudData['erp_v6_customers']);
+        } else if (customers.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_employees'] && cloudData['erp_v6_employees'].length > 0) {
+          setEmployees(cloudData['erp_v6_employees']);
+        } else if (employees.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_stockMovements'] && cloudData['erp_v6_stockMovements'].length > 0) {
+          setStockMovements(cloudData['erp_v6_stockMovements']);
+        } else if (stockMovements.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
+        }
+
+        if (cloudData['erp_v6_recipes'] && cloudData['erp_v6_recipes'].length > 0) {
+          setRecipes(cloudData['erp_v6_recipes']);
+        } else if (recipes.length > 0) {
+          supabase.from('erp_state').upsert({ key: 'erp_v6_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
+        }
+
       } catch (err) {
         console.error('Failed to load from Supabase:', err);
       }

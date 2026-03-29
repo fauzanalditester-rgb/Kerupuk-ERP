@@ -72,6 +72,7 @@ export interface Transaction {
   date: string;
   referenceId?: string; // Link to SO or PO
   isDebtPayment?: boolean;
+  description?: string;
 }
 
 export interface Customer {

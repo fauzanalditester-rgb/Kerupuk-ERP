@@ -45,6 +45,7 @@ export default function Finance() {
   const [amount, setAmount] = useState(0);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [referenceId, setReferenceId] = useState('');
+  const [description, setDescription] = useState('');
 
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; type: 'pay' | 'collect'; id: string; name: string; remainingAmount: number }>({ isOpen: false, type: 'pay', id: '', name: '', remainingAmount: 0 });
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
@@ -164,16 +165,16 @@ export default function Finance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (category && amount > 0 && date) {
-      addTransaction({ id: `TRX-${Date.now()}`, type, category, amount, date, referenceId: referenceId || undefined, isDebtPayment: false });
+      addTransaction({ id: `TRX-${Date.now()}`, type, category, amount, date, referenceId: referenceId || undefined, isDebtPayment: false, description: description || undefined });
       setIsModalOpen(false);
-      setType('Expense'); setCategory(''); setAmount(0); setReferenceId('');
+      setType('Expense'); setCategory(''); setAmount(0); setReferenceId(''); setDescription('');
     }
   };
 
   // Export helpers
   const exportCSV = () => {
-    const rows = [['ID','Tanggal','Tipe','Kategori','Jumlah','Referensi']];
-    filteredTransactions.forEach(t => rows.push([t.id, t.date, t.type, t.category, t.amount.toString(), t.referenceId||'']));
+    const rows = [['ID','Tanggal','Tipe','Kategori','Keterangan','Jumlah','Referensi']];
+    filteredTransactions.forEach(t => rows.push([t.id, t.date, t.type, t.category, `"${t.description || ''}"`, t.amount.toString(), t.referenceId||'']));
     const csv = rows.map(r => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const a = document.createElement('a');
@@ -185,7 +186,7 @@ export default function Finance() {
   const exportPDF = () => {
     const w = window.open('', '_blank');
     if (!w) return;
-    const html = `<html><head><title>Laporan Keuangan</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px;text-size:12px}th{background:#1e293b;color:white}.income{color:green}.expense{color:red}h1{font-size:18px}h2{font-size:14px;color:#666}</style></head><body><h1>Laporan Keuangan - Pempek & Kerupuk ERP</h1><h2>Periode: ${dateFrom||'Awal'} s/d ${dateTo||'Sekarang'}</h2><p><b>Saldo Kas:</b> ${fmtRp(balanceSheet.cashBalance)} | <b>Piutang:</b> ${fmtRp(totalReceivables)} | <b>Hutang:</b> ${fmtRp(totalPayables)} | <b>Laba Bersih:</b> ${fmtRp(netProfit)}</p><table><tr><th>ID</th><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th>Jumlah</th></tr>${filteredTransactions.map(t=>`<tr><td>${t.id}</td><td>${t.date}</td><td class="${t.type==='Income'?'income':'expense'}">${t.type==='Income'?'Pendapatan':'Pengeluaran'}</td><td>${getCategoryLabel(t.category)}</td><td class="${t.type==='Income'?'income':'expense'}">${fmtRp(t.amount)}</td></tr>`).join('')}</table><script>window.print()</script></body></html>`;
+    const html = `<html><head><title>Laporan Keuangan</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px;text-size:12px}th{background:#1e293b;color:white}.income{color:green}.expense{color:red}h1{font-size:18px}h2{font-size:14px;color:#666}</style></head><body><h1>Laporan Keuangan - Pempek & Kerupuk ERP</h1><h2>Periode: ${dateFrom||'Awal'} s/d ${dateTo||'Sekarang'}</h2><p><b>Saldo Kas:</b> ${fmtRp(balanceSheet.cashBalance)} | <b>Piutang:</b> ${fmtRp(totalReceivables)} | <b>Hutang:</b> ${fmtRp(totalPayables)} | <b>Laba Bersih:</b> ${fmtRp(netProfit)}</p><table><tr><th>ID</th><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th>Keterangan</th><th>Jumlah</th></tr>${filteredTransactions.map(t=>`<tr><td>${t.id}</td><td>${t.date}</td><td class="${t.type==='Income'?'income':'expense'}">${t.type==='Income'?'Pendapatan':'Pengeluaran'}</td><td>${getCategoryLabel(t.category)}</td><td>${t.description || '-'}</td><td class="${t.type==='Income'?'income':'expense'}">${fmtRp(t.amount)}</td></tr>`).join('')}</table><script>window.print()</script></body></html>`;
     w.document.write(html);
     w.document.close();
   };
@@ -423,7 +424,7 @@ export default function Finance() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                  <tr><th className="px-6 py-4">Transaksi</th><th className="px-6 py-4">Tanggal</th><th className="px-6 py-4">Kategori</th><th className="px-6 py-4 text-right">Jumlah</th><th className="px-6 py-4 text-center w-20">Aksi</th></tr>
+                  <tr><th className="px-6 py-4">Transaksi</th><th className="px-6 py-4">Tanggal</th><th className="px-6 py-4">Kategori</th><th className="px-6 py-4">Keterangan</th><th className="px-6 py-4 text-right">Jumlah</th><th className="px-6 py-4 text-center w-20">Aksi</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                   {filteredTransactions.map(t => (
@@ -431,6 +432,7 @@ export default function Finance() {
                       <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{t.id}</span><span className="text-[10px] text-slate-400 font-mono italic">{t.referenceId||'No Ref'}</span></div></td>
                       <td className="px-6 py-4 text-xs text-slate-500">{t.date}</td>
                       <td className="px-6 py-4"><span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter", t.type==='Income'?"bg-emerald-50 text-emerald-600":"bg-rose-50 text-rose-600")}>{getCategoryLabel(t.category)}</span></td>
+                      <td className="px-6 py-4 text-xs text-slate-600 truncate max-w-[150px]">{t.description || '-'}</td>
                       <td className={cn("px-6 py-4 text-sm font-black text-right", t.type==='Income'?"text-emerald-600":"text-slate-900")}>{t.type==='Income'?'+':'-'} {fmtRp(t.amount)}</td>
                       <td className="px-6 py-4 text-center"><button onClick={()=>{setSelectedTransaction(t);setIsDetailModalOpen(true)}} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Eye size={14}/></button></td>
                     </tr>
@@ -596,6 +598,7 @@ export default function Finance() {
             <div><label className="text-xs font-bold text-slate-500 uppercase">Nominal (Rp)</label><input type="number" required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" value={amount||''} onChange={e=>setAmount(Number(e.target.value))}/></div>
             <div><label className="text-xs font-bold text-slate-500 uppercase">Tanggal</label><input type="date" required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={date} onChange={e=>setDate(e.target.value)}/></div>
           </div>
+          <div><label className="text-xs font-bold text-slate-500 uppercase">Keterangan (Opsional)</label><textarea className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none resize-none h-20" placeholder="Tambahkan catatan atau deskripsi transaksi..." value={description} onChange={e=>setDescription(e.target.value)}></textarea></div>
           <div className="pt-4"><button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest hover:bg-black transition-all">Simpan Transaksi</button></div>
         </form>
       </Modal>
@@ -612,6 +615,7 @@ export default function Finance() {
             <div className="space-y-3">
               <DetailRow label="ID Transaksi" value={selectedTransaction.id}/>
               <DetailRow label="Tanggal" value={new Date(selectedTransaction.date).toLocaleDateString('id-ID',{dateStyle:'long'})}/>
+              {selectedTransaction.description && <DetailRow label="Keterangan" value={selectedTransaction.description}/>}
               <DetailRow label="Referensi" value={selectedTransaction.referenceId||'-'} mono/>
               <DetailRow label="Sifat" value={selectedTransaction.isDebtPayment?'Penyelesaian Hutang/Piutang':'Operasional Langsung'}/>
             </div>

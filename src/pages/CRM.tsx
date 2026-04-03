@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Plus, Filter, Search, Phone, Mail, MapPin, X, Eye, Pencil, ShoppingBag, TrendingUp, UserCheck } from 'lucide-react';
+import { Users, Plus, Filter, Search, Phone, Mail, MapPin, X, Eye, Pencil, ShoppingBag, TrendingUp, UserCheck, Trash2 } from 'lucide-react';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { Customer } from '../lib/types';
 
 export default function CRM() {
-  const { customers, addCustomer, updateCustomer, salesOrders, inventory } = useERP();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, salesOrders, inventory } = useERP();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState<any>(null);
@@ -322,10 +322,21 @@ export default function CRM() {
                     </button>
                     <button
                       onClick={() => openEditModal(customer)}
-                      className="flex-1 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5"
+                      className="px-3 py-2 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <Pencil size={14} />
                       Edit
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Hapus pelanggan ${customer.name}?`)) {
+                          deleteCustomer(customer.id);
+                        }
+                      }}
+                      className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                      title="Hapus"
+                    >
+                      <Trash2 size={16} />
                     </button>
                   </div>
                 </div>

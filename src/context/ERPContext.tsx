@@ -42,6 +42,7 @@ interface ERPContextType {
   updateRecipe: (id: string, updatedRecipe: Recipe) => void;
   deleteRecipe: (id: string) => void;
   deleteWorkOrder: (id: string) => void;
+  deleteCustomer: (id: string) => void;
   payDebt: (poId: string, amount: number) => void;
   collectPayment: (soId: string, amount: number) => void;
   clearAllData: () => Promise<void>;
@@ -433,6 +434,10 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
   }, []);
 
+  const deleteCustomer = useCallback((id: string) => {
+    setCustomers(prev => prev.filter(c => c.id !== id));
+  }, []);
+
   const completeSalesOrder = useCallback((id: string, soObj?: SalesOrder) => {
     const so = soObj || salesOrders.find(s => s.id === id);
     if (!so || so.status === 'Completed') return;
@@ -632,6 +637,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateRecipe,
     deleteRecipe,
     deleteWorkOrder,
+    deleteCustomer,
     payDebt,
     collectPayment,
     clearAllData,
@@ -648,7 +654,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     adjustStock, createWorkOrder, completeWorkOrder, createSalesOrder,
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
-    updateRecipe, deleteRecipe, deleteWorkOrder, payDebt, collectPayment,
+    updateRecipe, deleteRecipe, deleteWorkOrder, deleteCustomer, payDebt, collectPayment,
     clearAllData,
     totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems
   ]);

@@ -46,6 +46,7 @@ export default function Finance() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [referenceId, setReferenceId] = useState('');
   const [description, setDescription] = useState('');
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; type: 'pay' | 'collect'; id: string; name: string; remainingAmount: number }>({ isOpen: false, type: 'pay', id: '', name: '', remainingAmount: 0 });
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
@@ -165,9 +166,18 @@ export default function Finance() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (category && amount > 0 && date) {
-      addTransaction({ id: `TRX-${Date.now()}`, type, category, amount, date, referenceId: referenceId || undefined, isDebtPayment: false, description: description || undefined });
+      addTransaction({ 
+        id: `TRX-${Date.now()}`, 
+        type, 
+        category, 
+        amount, 
+        date: date.includes(' ') ? date : `${date} ${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`, 
+        referenceId: referenceId || undefined, 
+        isDebtPayment: false, 
+        description: description || undefined 
+      });
       setIsModalOpen(false);
-      setType('Expense'); setCategory(''); setAmount(0); setReferenceId(''); setDescription('');
+      setType('Expense'); setCategory(''); setAmount(0); setReferenceId(''); setDescription(''); setSelectedEmployeeId('');
     }
   };
 
@@ -589,11 +599,35 @@ export default function Finance() {
           </div>
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase">Kategori</label>
-            <select required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={category} onChange={e=>setCategory(e.target.value)}>
+            <select required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={category} onChange={e=>{setCategory(e.target.value); setSelectedEmployeeId('');}}>
               <option value="">Pilih Kategori...</option>
               {type==='Income'?(<><option value="Sales">Penjualan Produk</option><option value="Investment">Modal Pemilik / Investor</option><option value="Other">Pendapatan Lainnya</option></>):(<><option value="Raw Materials">Pembelian Bahan Baku</option><option value="Salaries">Gaji Karyawan</option><option value="Utilities">Listrik, Air & WiFi</option><option value="Maintenance">Biaya Perbaikan</option><option value="Rent">Sewa Gedung/Lahan</option><option value="Other">Biaya Operasional Lainnya</option></>)}
             </select>
           </div>
+          {category === 'Salaries' && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="text-xs font-bold text-emerald-600 uppercase">Pilih Karyawan</label>
+              <select 
+                required 
+                className="w-full mt-1 px-3 py-2 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-bold outline-none" 
+                value={selectedEmployeeId} 
+                onChange={e => {
+                  const empId = e.target.value;
+                  setSelectedEmployeeId(empId);
+                  const emp = employees.find(emp => emp.id === empId);
+                  if (emp) {
+                    setAmount(emp.salary);
+                    setDescription(`Gaji bulan ini untuk ${emp.name}`);
+                  }
+                }}
+              >
+                <option value="">-- Pilih Karyawan --</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.name} ({emp.role})</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div><label className="text-xs font-bold text-slate-500 uppercase">Nominal (Rp)</label><input type="number" required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" value={amount||''} onChange={e=>setAmount(Number(e.target.value))}/></div>
             <div><label className="text-xs font-bold text-slate-500 uppercase">Tanggal</label><input type="date" required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={date} onChange={e=>setDate(e.target.value)}/></div>

@@ -15,7 +15,7 @@ import { cn } from '../lib/utils';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { InventoryItem, Category, Unit, StockMovement } from '../lib/types';
-
+  
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState<'raw' | 'finished' | 'supply'>('raw');
   const { inventory, addInventoryItem, stockMovements, updateInventoryStock, addTransaction } = useERP();
@@ -36,6 +36,8 @@ export default function Inventory() {
   const [sortBy, setSortBy] = useState<'category' | 'name' | 'stock' | 'price' | 'value' | 'id'>('id');
   const [sortAsc, setSortAsc] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'raw' | 'finished'>('all');
+  const [filterPrice, setFilterPrice] = useState<'all' | 'low' | 'high'>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'Good' | 'Low'>('all');
 
   const [newItem, setNewItem] = useState<Partial<InventoryItem>>({
     category: 'Bahan Baku',
@@ -75,6 +77,23 @@ export default function Inventory() {
     // Filter by category
     if (filterCategory !== 'all') {
       items = items.filter(item => item.category === filterCategory);
+    }
+
+    // Filter by price
+    if (filterPrice !== 'all') {
+      items = items.filter(item => {
+        if (filterPrice === 'low') return item.price < 50000;
+        if (filterPrice === 'high') return item.price >= 50000;
+        return true;
+      });
+    }
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+      items = items.filter(item => {
+        const isLow = item.stock <= (item.minStock || 5);
+        return filterStatus === 'Low' ? isLow : !isLow;
+      });
     }
 
     // Filter by date
@@ -259,41 +278,120 @@ export default function Inventory() {
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               className={cn(
                 "px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors",
-                filterCategory !== 'all'
+                (filterCategory !== 'all' || filterStatus !== 'all' || filterPrice !== 'all')
                   ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                   : "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
               )}
             >
               <Filter size={18} />
               Filter
-              {filterCategory !== 'all' && (
+              {(filterCategory !== 'all' || filterStatus !== 'all' || filterPrice !== 'all') && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500" />
               )}
             </button>
             {isFilterOpen && (
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl border border-slate-200 shadow-lg z-50 p-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Kategori</p>
-                <button
-                  onClick={() => { setFilterCategory('all'); setIsFilterOpen(false); }}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                    filterCategory === 'all' ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-600 hover:bg-slate-50"
-                  )}
-                >
-                  Semua Kategori
-                </button>
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => { setFilterCategory(cat); setIsFilterOpen(false); }}
-                    className={cn(
-                      "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
-                      filterCategory === cat ? "bg-emerald-50 text-emerald-700 font-medium" : "text-slate-600 hover:bg-slate-50"
-                    )}
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-slate-200 shadow-xl z-50 p-3 space-y-4">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Kategori</p>
+                  <div className="grid grid-cols-1 gap-1">
+                    <button
+                      onClick={() => { setFilterCategory('all'); }}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterCategory === 'all' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      Semua Kategori
+                    </button>
+                    {categories.map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => { setFilterCategory(cat); }}
+                        className={cn(
+                          "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                          filterCategory === cat ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                        )}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Status Stok</p>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => setFilterStatus('all')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterStatus === 'all' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      Semua Status
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('Good')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterStatus === 'Good' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      ✅ Sangat Baik
+                    </button>
+                    <button
+                      onClick={() => setFilterStatus('Low')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterStatus === 'Low' ? "bg-red-100 text-red-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      ⚠️ Perlu Order
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 mb-2">Rentang Harga</p>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => setFilterPrice('all')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterPrice === 'all' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      Semua Harga
+                    </button>
+                    <button
+                      onClick={() => setFilterPrice('low')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterPrice === 'low' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      💰 Di bawah Rp 50.000
+                    </button>
+                    <button
+                      onClick={() => setFilterPrice('high')}
+                      className={cn(
+                        "w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors",
+                        filterPrice === 'high' ? "bg-emerald-100 text-emerald-800 font-bold" : "text-slate-600 hover:bg-slate-50"
+                      )}
+                    >
+                      💎 Di atas Rp 50.000
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex justify-end">
+                  <button 
+                    onClick={() => setIsFilterOpen(false)}
+                    className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-bold rounded-lg uppercase tracking-wider"
                   >
-                    {cat}
+                    Terapkan
                   </button>
-                ))}
+                </div>
               </div>
             )}
           </div>
@@ -334,7 +432,7 @@ export default function Inventory() {
               activeTab === 'supply' ? "text-emerald-600" : "text-slate-500 hover:text-slate-700"
             )}
           >
-            Pengeluaran Stok
+            Histori Stok
             {activeTab === 'supply' && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600 rounded-t-full" />
             )}
@@ -600,7 +698,7 @@ export default function Inventory() {
               <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
                 <History size={20} />
               </div>
-              <h2 className="font-bold text-slate-800 text-lg whitespace-nowrap">Histori Pengeluaran</h2>
+              <h2 className="font-bold text-slate-800 text-lg whitespace-nowrap">Histori Pergerakan Stok</h2>
 
               <div className="relative flex-1 max-w-sm ml-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -698,8 +796,14 @@ export default function Inventory() {
                             {item?.type === 'raw' ? 'Bahan Baku' : 'Barang Jadi'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center font-black text-red-600 text-base">
-                          -{m.displayAmount !== undefined ? `${m.displayAmount} ${m.displayUnit}` : `${m.amount} ${item?.unit}`}
+                        <td className={cn(
+                          "px-6 py-4 text-center font-black text-base",
+                          m.type === 'In' ? "text-emerald-600" : m.type === 'Out' ? "text-rose-600" : "text-slate-600"
+                        )}>
+                          {m.type === 'In' ? '+' : m.type === 'Out' ? '-' : ''}
+                          {m.displayAmount !== undefined 
+                            ? `${Number(m.displayAmount).toFixed(m.displayUnit === 'pcs' ? 0 : 1)} ${m.displayUnit}` 
+                            : `${Number(m.amount).toFixed(item?.unit === 'pcs' ? 0 : 1)} ${item?.unit}`}
                         </td>
                         <td className="px-6 py-4 text-slate-600 italic text-sm">
                           {m.reason}

@@ -26,8 +26,12 @@ export default function ProductionRecipes() {
     const [currentMaterialInputUnit, setCurrentMaterialInputUnit] = useState<'kg' | 'pcs'>('kg');
 
 
-    // Get only finished goods for recipe creation target
-    const finishedGoods = inventory.filter(item => item.type === 'finished' || item.category === 'Pempek' || item.category === 'Kerupuk');
+    // Get only finished goods for recipe creation target (that don't have a recipe yet)
+    const finishedGoods = inventory.filter(item => {
+        const isTarget = item.type === 'finished' || item.category === 'Pempek' || item.category === 'Kerupuk';
+        const alreadyHasRecipe = recipes.some(r => r.productId === item.id);
+        return isTarget && !alreadyHasRecipe;
+    });
     // Get all materials for ingredients (Raw Materials + Finished Goods for semi-finished recipes)
     const allPossibleIngredients = inventory.filter(item =>
         item.type === 'raw' ||

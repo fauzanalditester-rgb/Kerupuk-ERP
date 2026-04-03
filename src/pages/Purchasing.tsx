@@ -530,16 +530,18 @@ export default function Purchasing() {
                   <thead className="bg-slate-100 text-slate-500">
                     <tr>
                       <th className="px-4 py-2 text-left">Bahan</th>
-                      <th className="px-4 py-2 text-left">Jumlah</th>
-                      <th className="px-4 py-2 text-left">Biaya</th>
+                      <th className="px-4 py-2 text-center">Jumlah</th>
+                      <th className="px-4 py-2 text-right">Harga Satuan</th>
+                      <th className="px-4 py-2 text-right">Subtotal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {selectedPO.items.map((item, idx) => (
                       <tr key={idx} className="border-t border-slate-100">
                         <td className="px-4 py-3 font-medium text-slate-900">{getMaterialName(item.materialId)}</td>
-                        <td className="px-4 py-3 text-slate-600">{item.quantity} {getMaterialUnit(item.materialId)}</td>
-                        <td className="px-4 py-3 text-slate-600">Rp {item.cost.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-center text-slate-600">{item.quantity} {getMaterialUnit(item.materialId)}</td>
+                        <td className="px-4 py-3 text-right text-slate-600">Rp {item.cost.toLocaleString()}</td>
+                        <td className="px-4 py-3 text-right font-bold text-slate-900">Rp {(item.quantity * item.cost).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -693,6 +695,7 @@ export default function Purchasing() {
                     <tr>
                       <th className="px-3 py-2 text-left">Barang</th>
                       <th className="px-3 py-2 text-center">Jumlah</th>
+                      <th className="px-3 py-2 text-right">Harga Satuan</th>
                       <th className="px-3 py-2 text-right">Subtotal</th>
                       <th className="px-3 py-2"></th>
                     </tr>
@@ -705,6 +708,7 @@ export default function Purchasing() {
                           {item.isNew && <span className="text-[8px] bg-blue-100 text-blue-600 px-1 rounded uppercase">Baru</span>}
                         </td>
                         <td className="px-3 py-2 text-center text-slate-600">{item.quantity} {item.unit}</td>
+                        <td className="px-3 py-2 text-right text-slate-500 italic">Rp {item.cost.toLocaleString()}</td>
                         <td className="px-3 py-2 text-right font-bold text-slate-900">
                           Rp {Math.round(item.quantity * item.cost).toLocaleString()}
                         </td>
@@ -722,7 +726,7 @@ export default function Purchasing() {
                   </tbody>
                   <tfoot className="bg-slate-50 border-t border-slate-100">
                     <tr>
-                      <td colSpan={2} className="px-3 py-2 text-right font-bold text-slate-500 uppercase text-[10px]">Total Estimasi:</td>
+                      <td colSpan={3} className="px-3 py-2 text-right font-bold text-slate-500 uppercase text-[10px]">Total Estimasi:</td>
                       <td className="px-3 py-2 text-right font-extrabold text-emerald-600 text-sm">
                         Rp {Math.round(poItems.reduce((sum, item) => sum + (item.quantity * item.cost), 0)).toLocaleString()}
                       </td>

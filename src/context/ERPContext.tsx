@@ -44,6 +44,7 @@ interface ERPContextType {
   deleteWorkOrder: (id: string) => void;
   payDebt: (poId: string, amount: number) => void;
   collectPayment: (soId: string, amount: number) => void;
+  clearAllData: () => Promise<void>;
 
   // Stats
   totalRevenue: number;
@@ -569,6 +570,39 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [salesOrders, transactions]);
 
+  const clearAllData = useCallback(async () => {
+    // 1. Clear Supabase
+    try {
+      const { error } = await supabase.from('erp_state').delete().neq('key', 'null');
+      if (error) throw error;
+    } catch (err) {
+      console.error('Failed to clear Supabase:', err);
+      alert('Gagal membersihkan database cloud. Mohon cek koneksi atau hubungi admin.');
+      return;
+    }
+
+    // 2. Clear Local Storage
+    const keys = [
+      'erp_v7_inventory', 'erp_v7_workOrders', 'erp_v7_salesOrders', 
+      'erp_v7_purchaseOrders', 'erp_v7_transactions', 'erp_v7_customers', 
+      'erp_v7_employees', 'erp_v7_stockMovements', 'erp_v7_recipes'
+    ];
+    keys.forEach(key => localStorage.removeItem(key));
+
+    // 3. Reset State
+    setInventory(initialInventory);
+    setWorkOrders(initialWorkOrders);
+    setSalesOrders(initialSalesOrders);
+    setPurchaseOrders(initialPurchaseOrders);
+    setTransactions(initialTransactions);
+    setCustomers(initialCustomers);
+    setEmployees(initialEmployees);
+    setStockMovements(initialStockMovements);
+    setRecipes(initialRecipes);
+
+    window.location.reload(); // Refresh to ensure clean state
+  }, []);
+
   const contextValue = useMemo(() => ({
     inventory,
     workOrders,
@@ -600,6 +634,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteWorkOrder,
     payDebt,
     collectPayment,
+    clearAllData,
     totalRevenue,
     totalExpenses,
     netProfit,
@@ -614,6 +649,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
     updateRecipe, deleteRecipe, deleteWorkOrder, payDebt, collectPayment,
+    clearAllData,
     totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems
   ]);
 

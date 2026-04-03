@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer } from 'lucide-react';
+import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle } from 'lucide-react';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { SalesOrder } from '../lib/types';
@@ -297,6 +297,14 @@ export default function Sales() {
     return item?.unit || '';
   };
 
+  const getSalesUnit = (productId: string) => {
+    const item = inventory.find(i => i.id === productId);
+    if (!item) return '';
+    // Logic: Pempek is sold in PCS (1kg = 32pcs) while Kerupuk is sold in KG
+    if (item.category === 'Pempek' && item.unit === 'kg') return 'pcs';
+    return item.unit;
+  };
+
   const handleStartEdit = (id: string, currentPrice: number) => {
     setEditingId(id);
     setTempPrice(currentPrice);
@@ -544,10 +552,10 @@ export default function Sales() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => { setSelectedSO(so); setIsDetailModalOpen(true); }}
-                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              className="px-2 py-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 border border-slate-100 rounded-lg flex items-center gap-1.5 transition-all text-[10px] font-bold"
                               title="Lihat Detail"
                             >
-                              <Eye size={16} />
+                              <Eye size={14} /> Lihat
                             </button>
                             <button
                               onClick={() => handlePrintInvoice(so)}
@@ -635,7 +643,7 @@ export default function Sales() {
                           </span>
                         </td>
                         <td className="px-6 py-4 font-semibold text-slate-900">{item.name}</td>
-                        <td className="px-6 py-4 text-slate-500">{item.unit === 'kg' ? 'per pcs' : item.unit}</td>
+                        <td className="px-6 py-4 text-slate-500">{item.category === 'Pempek' && item.unit === 'kg' ? 'per pcs' : item.unit}</td>
                         <td className="px-6 py-4 text-right">
                           {editingId === item.id ? (
                             <div className="flex items-center justify-end gap-2 text-sm">
@@ -697,86 +705,139 @@ export default function Sales() {
             c.name.toLowerCase().trim() === selectedSO.customerName.toLowerCase().trim()
           );
           return (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Pelanggan</p>
-                  <p className="font-bold text-slate-900">{selectedSO.customerName}</p>
+            <div className="space-y-6">
+              {/* Invoice Header Simulation */}
+              <div className="flex justify-between items-start border-b-2 border-emerald-500 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-emerald-600 text-white p-2 rounded-xl shadow-lg shadow-emerald-100">
+                    <ShoppingBag size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 leading-none">INVOICE</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Kedai Kurupuk & Pempek</p>
+                  </div>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Tanggal</p>
-                  <p className="font-semibold text-slate-900">{selectedSO.date}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Status</p>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${selectedSO.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                    selectedSO.status === 'Processing' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                      'bg-blue-50 text-blue-700 border-blue-100'
-                    }`}>
-                    {getStatusLabel(selectedSO.status)}
-                  </span>
-                </div>
-                
-                {/* Contact Info in Details */}
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Telepon/WA</p>
-                  <p className="text-slate-700 font-medium">{selectedSO.customerPhone || customerInfo?.phone || '-'}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Email</p>
-                  <p className="text-slate-700 font-medium">{selectedSO.customerEmail || customerInfo?.email || '-'}</p>
-                </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Metode Pembayaran</p>
-                  <span className={cn(
-                    "px-2 py-1 rounded text-[10px] font-bold uppercase",
-                    selectedSO.paymentMethod === 'Cash' ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600 border border-red-100"
-                  )}>
-                    {selectedSO.paymentMethod === 'Cash' ? 'Cash' : 'Utang'}
-                  </span>
-                </div>
-                
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100 sm:col-span-2 lg:col-span-2">
-                  <p className="text-xs text-slate-400 uppercase tracking-wider mb-1 font-bold">Alamat Pengiriman</p>
-                  <p className="text-slate-700 leading-relaxed font-medium">
-                    {selectedSO.customerAddress || customerInfo?.address || 'Alamat tidak diatur'}
-                  </p>
-                </div>
-                <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 flex flex-col justify-center">
-                  <p className="text-[10px] text-emerald-500 uppercase tracking-wider font-bold mb-1">Total Tagihan</p>
-                  <p className="font-black text-emerald-400 text-xl">Rp {selectedSO.totalAmount.toLocaleString()}</p>
+                <div className="text-right">
+                  <p className="text-sm font-black text-slate-900 mb-0.5">{selectedSO.id}</p>
+                  <p className="text-[10px] text-slate-500 font-medium">{selectedSO.date}</p>
                 </div>
               </div>
 
-            <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">Daftar Barang</p>
-              <div className="bg-slate-50 rounded-lg overflow-hidden border border-slate-100">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Customer Details Section */}
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-2 border-b border-emerald-50 pb-1">Detail Pelanggan</h4>
+                    <p className="text-lg font-black text-slate-900 mb-1">{selectedSO.customerName}</p>
+                    <div className="space-y-1.5 bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
+                      {(selectedSO.customerPhone || customerInfo?.phone) && (
+                        <p className="text-xs text-slate-600 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          <span className="font-bold">Contact:</span> {selectedSO.customerPhone || customerInfo?.phone}
+                        </p>
+                      )}
+                      <p className="text-xs text-slate-500 italic max-w-xs leading-relaxed flex items-start gap-1.5">
+                        <MapPin size={12} className="mt-0.5 text-slate-400 shrink-0" />
+                        {selectedSO.customerAddress || customerInfo?.address || 'Alamat tidak tersedia'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Order Details Section */}
+                <div className="space-y-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100 shadow-inner">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Status Pesanan</p>
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border tracking-wider flex items-center gap-1.5 w-fit ${
+                        selectedSO.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        selectedSO.status === 'Processing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                        'bg-blue-50 text-blue-700 border-blue-200'
+                      }`}>
+                        {selectedSO.status === 'Completed' ? <CheckCircle size={12} /> : null}
+                        {getStatusLabel(selectedSO.status)}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-tight">Status Bayar</p>
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border tracking-wider flex items-center gap-1.5 w-fit",
+                        selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"
+                      )}>
+                        {(selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid) ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        {(selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid) ? 'LUNAS' : 'BELUM LUNAS'}
+                      </span>
+                    </div>
+                    {/* Add Payment Method indicator separately */}
+                    <div className="col-span-2 pt-1 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Pembayaran:</span>
+                      <span className={cn("text-[10px] font-black uppercase px-2 py-0.5 rounded", selectedSO.paymentMethod === 'Cash' ? "text-blue-600 bg-blue-50" : "text-rose-600 bg-rose-50")}>
+                        {selectedSO.paymentMethod}
+                      </span>
+                    </div>
+                    {selectedSO.dueDate && selectedSO.paymentMethod === 'Debt' && (
+                      <div className="col-span-2">
+                        <p className="text-[9px] font-black text-rose-500 uppercase mb-1">Jatuh Tempo</p>
+                        <p className="text-xs font-black text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100 w-fit">
+                          📅 {selectedSO.dueDate}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            <div className="space-y-4">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest bg-slate-50 px-3 py-1 rounded-md border border-slate-100 w-fit">
+                Rincian Barang Pesanan
+              </h4>
+              <div className="bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
                 <table className="w-full text-sm">
-                  <thead className="bg-slate-100 text-slate-500">
+                  <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
                     <tr>
-                      <th className="px-4 py-2 text-left">Produk</th>
-                      <th className="px-4 py-2 text-left">Jumlah</th>
-                      <th className="px-4 py-2 text-left">Harga/Unit</th>
-                      <th className="px-4 py-2 text-left">Subtotal</th>
+                      <th className="px-5 py-3 text-left font-black uppercase text-[10px] tracking-wider">Produk</th>
+                      <th className="px-5 py-3 text-center font-black uppercase text-[10px] tracking-wider">Jumlah</th>
+                      <th className="px-5 py-3 text-right font-black uppercase text-[10px] tracking-wider">Harga</th>
+                      <th className="px-5 py-3 text-right font-black uppercase text-[10px] tracking-wider">Subtotal</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {selectedSO.items.map((item, idx) => (
-                      <tr key={idx} className="border-t border-slate-100">
-                        <td className="px-4 py-3 font-medium text-slate-900">{getProductName(item.productId)}</td>
-                        <td className="px-4 py-3 text-slate-600">{item.quantity} pcs</td>
-                        <td className="px-4 py-3 text-slate-600">Rp {item.price.toLocaleString()}</td>
-                        <td className="px-4 py-3 font-medium text-slate-900">Rp {(item.quantity * item.price).toLocaleString()}</td>
+                      <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-5 py-4 font-bold text-slate-900">{getProductName(item.productId)}</td>
+                        <td className="px-5 py-4 text-center font-black text-slate-700 bg-slate-50/50">{item.quantity} {getSalesUnit(item.productId)}</td>
+                        <td className="px-5 py-4 text-right text-slate-500 italic">Rp {item.price.toLocaleString()}</td>
+                        <td className="px-5 py-4 text-right font-black text-slate-900">Rp {(item.quantity * item.price).toLocaleString()}</td>
                       </tr>
                     ))}
-                    {selectedSO.discount && selectedSO.discount > 0 && (
-                      <tr className="border-t border-slate-100 bg-emerald-50/30">
-                        <td colSpan={3} className="px-4 py-2 text-right text-emerald-700 font-medium text-xs uppercase tracking-wider">Diskon {selectedSO.discount}%</td>
-                        <td className="px-4 py-2 font-bold text-emerald-700">- Rp {((selectedSO.items.reduce((sum, i) => sum + (i.quantity * i.price), 0) * selectedSO.discount) / 100).toLocaleString()}</td>
+                  </tbody>
+                  <tfoot className="bg-slate-900 text-white font-black divide-y divide-slate-800">
+                    {selectedSO.discount > 0 && (
+                      <tr>
+                        <td colSpan={3} className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 italic">Diskon {selectedSO.discount}%:</td>
+                        <td className="px-5 py-2 text-right text-orange-400 text-xs italic">
+                          - Rp {((selectedSO.items.reduce((sum, i) => sum + (i.quantity * i.price), 0) * selectedSO.discount) / 100).toLocaleString()}
+                        </td>
                       </tr>
                     )}
-                  </tbody>
+                    <tr>
+                      <td colSpan={3} className="px-5 py-4 text-right text-[10px] font-black uppercase tracking-widest text-emerald-500">Total Tagihan Final:</td>
+                      <td className="px-5 py-4 text-right text-emerald-400 text-xl tracking-tighter">
+                        Rp {selectedSO.totalAmount.toLocaleString()}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
+              </div>
+              <div className="flex justify-between items-center px-4 pt-2">
+                <div className="text-[10px] text-slate-400 italic font-medium">
+                  * Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan.<br/>
+                  * Terima kasih atas kepercayaan Anda!
+                </div>
+                <div className="text-center pt-2">
+                  <div className="h-10 w-24 border-b border-slate-200 mb-1 mx-auto" />
+                  <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Admin Sales</p>
+                </div>
               </div>
             </div>
 
@@ -802,9 +863,9 @@ export default function Sales() {
               </button>
             </div>
           </div>
-        )(); }
-        )}
-      </Modal>
+        );
+      })()}
+    </Modal>
 
       <Modal
         isOpen={isModalOpen}
@@ -954,7 +1015,7 @@ export default function Sales() {
                         <p className="font-bold text-slate-800">{item.productName}</p>
                         <p className="text-[10px] text-slate-400">Rp {item.price.toLocaleString()}</p>
                       </td>
-                      <td className="px-3 py-2 text-center">{item.quantity} {item.unit === 'kg' ? 'pcs' : item.unit}</td>
+                      <td className="px-3 py-2 text-center">{item.quantity} {getSalesUnit(item.productId)}</td>
                       <td className="px-3 py-2 text-right font-bold text-slate-900">
                         Rp {Math.round(item.quantity * item.price).toLocaleString()}
                       </td>
@@ -1233,7 +1294,7 @@ export default function Sales() {
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
                         <td className="px-3 py-2 font-bold text-slate-800">{getProductName(item.productId)}</td>
                         <td className="px-3 py-2 text-center text-slate-600 bg-slate-50/50">
-                          {item.quantity} {getProductUnit(item.productId)}
+                          {item.quantity} {getSalesUnit(item.productId)}
                         </td>
                         <td className="px-3 py-2 text-right text-slate-600 italic">Rp {item.price.toLocaleString()}</td>
                         <td className="px-3 py-2 text-right font-black text-slate-900 bg-emerald-50/30">

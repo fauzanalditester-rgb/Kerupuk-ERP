@@ -47,6 +47,11 @@ export default function Finance() {
   const [referenceId, setReferenceId] = useState('');
   const [description, setDescription] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  
+  const [incomeCategories, setIncomeCategories] = useState(() => JSON.parse(localStorage.getItem('erp_income_cats') || '["Sales", "Investment", "Other"]'));
+  const [expenseCategories, setExpenseCategories] = useState(() => JSON.parse(localStorage.getItem('erp_expense_cats') || '["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"]'));
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
 
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; type: 'pay' | 'collect'; id: string; name: string; remainingAmount: number }>({ isOpen: false, type: 'pay', id: '', name: '', remainingAmount: 0 });
   const [paymentAmount, setPaymentAmount] = useState<number | ''>('');
@@ -178,6 +183,7 @@ export default function Finance() {
       });
       setIsModalOpen(false);
       setType('Expense'); setCategory(''); setAmount(0); setReferenceId(''); setDescription(''); setSelectedEmployeeId('');
+      setIsNewCategory(false); setNewCatName('');
     }
   };
 
@@ -599,10 +605,60 @@ export default function Finance() {
           </div>
           <div>
             <label className="text-xs font-bold text-slate-500 uppercase">Kategori</label>
-            <select required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={category} onChange={e=>{setCategory(e.target.value); setSelectedEmployeeId('');}}>
-              <option value="">Pilih Kategori...</option>
-              {type==='Income'?(<><option value="Sales">Penjualan Produk</option><option value="Investment">Modal Pemilik / Investor</option><option value="Other">Pendapatan Lainnya</option></>):(<><option value="Raw Materials">Pembelian Bahan Baku</option><option value="Salaries">Gaji Karyawan</option><option value="Utilities">Listrik, Air & WiFi</option><option value="Maintenance">Biaya Perbaikan</option><option value="Rent">Sewa Gedung/Lahan</option><option value="Other">Biaya Operasional Lainnya</option></>)}
-            </select>
+            <div className="space-y-2">
+              <select required className="w-full mt-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none" value={isNewCategory ? 'ADD_NEW' : category} onChange={e=>{
+                const val = e.target.value;
+                if (val === 'ADD_NEW') {
+                  setIsNewCategory(true);
+                  setCategory('');
+                } else {
+                  setIsNewCategory(false);
+                  setCategory(val);
+                }
+                setSelectedEmployeeId('');
+              }}>
+                <option value="">Pilih Kategori...</option>
+                {(type === 'Income' ? incomeCategories : expenseCategories).map(cat => (
+                  <option key={cat} value={cat}>{getCategoryLabel(cat)}</option>
+                ))}
+                <option value="ADD_NEW" className="text-blue-600 font-bold">+ Tambah Kategori Baru...</option>
+              </select>
+
+              {isNewCategory && (
+                <div className="flex gap-2 animate-in slide-in-from-right-2 duration-300">
+                  <input 
+                    type="text" 
+                    autoFocus
+                    placeholder="Nama kategori baru..." 
+                    className="flex-1 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-sm outline-none font-bold" 
+                    value={newCatName} 
+                    onChange={e => setNewCatName(e.target.value)}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (newCatName.trim()) {
+                        const updated = type === 'Income' ? [...incomeCategories, newCatName.trim()] : [...expenseCategories, newCatName.trim()];
+                        if (type === 'Income') {
+                          setIncomeCategories(updated);
+                          localStorage.setItem('erp_income_cats', JSON.stringify(updated));
+                        } else {
+                          setExpenseCategories(updated);
+                          localStorage.setItem('erp_expense_cats', JSON.stringify(updated));
+                        }
+                        setCategory(newCatName.trim());
+                        setNewCatName('');
+                        setIsNewCategory(false);
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold"
+                  >
+                    Tambah
+                  </button>
+                  <button type="button" onClick={() => setIsNewCategory(false)} className="px-3 py-2 text-slate-400">Batal</button>
+                </div>
+              )}
+            </div>
           </div>
           {category === 'Salaries' && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-300">

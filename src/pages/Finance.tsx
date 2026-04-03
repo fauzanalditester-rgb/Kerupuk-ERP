@@ -202,7 +202,131 @@ export default function Finance() {
   const exportPDF = () => {
     const w = window.open('', '_blank');
     if (!w) return;
-    const html = `<html><head><title>Laporan Keuangan</title><style>body{font-family:sans-serif;padding:20px}table{width:100%;border-collapse:collapse;margin-top:16px}th,td{border:1px solid #ddd;padding:8px;text-size:12px}th{background:#1e293b;color:white}.income{color:green}.expense{color:red}h1{font-size:18px}h2{font-size:14px;color:#666}</style></head><body><h1>Laporan Keuangan - Pempek & Kerupuk ERP</h1><h2>Periode: ${dateFrom||'Awal'} s/d ${dateTo||'Sekarang'}</h2><p><b>Saldo Kas:</b> ${fmtRp(balanceSheet.cashBalance)} | <b>Piutang:</b> ${fmtRp(totalReceivables)} | <b>Hutang:</b> ${fmtRp(totalPayables)} | <b>Laba Bersih:</b> ${fmtRp(netProfit)}</p><table><tr><th>ID</th><th>Tanggal</th><th>Tipe</th><th>Kategori</th><th>Keterangan</th><th>Jumlah</th></tr>${filteredTransactions.map(t=>`<tr><td>${t.id}</td><td>${t.date}</td><td class="${t.type==='Income'?'income':'expense'}">${t.type==='Income'?'Pendapatan':'Pengeluaran'}</td><td>${getCategoryLabel(t.category)}</td><td>${t.description || '-'}</td><td class="${t.type==='Income'?'income':'expense'}">${fmtRp(t.amount)}</td></tr>`).join('')}</table><script>window.print()</script></body></html>`;
+    
+    const reportDate = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    const periodStr = `${dateFrom || 'Awal'} s/d ${dateTo || 'Sekarang'}`;
+    
+    const html = `
+      <html>
+        <head>
+          <title>Laporan Keuangan - ERP</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+            body { font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b; background: white; margin: 0; }
+            .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 4px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px; }
+            .company-info h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.05em; color: #0f172a; }
+            .company-info p { margin: 4px 0 0; font-size: 12px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+            .report-title { text-align: right; }
+            .report-title h2 { margin: 0; font-size: 18px; font-weight: 900; color: #0f172a; text-transform: uppercase; }
+            .report-title p { margin: 4px 0 0; font-size: 12px; color: #64748b; font-weight: 600; }
+            
+            .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+            .summary-card { padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; }
+            .summary-card.income { background-color: #f0fdf4; border-color: #bbf7d0; }
+            .summary-card.expense { background-color: #fef2f2; border-color: #fecaca; }
+            .summary-card.profit { background-color: #f8fafc; border-color: #e2e8f0; }
+            .summary-card span { display: block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px; }
+            .summary-card b { font-size: 18px; font-weight: 900; }
+            .income b { color: #15803d; }
+            .expense b { color: #b91c1c; }
+            .profit b { color: #0f172a; }
+            
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background-color: #f8fafc; text-align: left; padding: 12px 15px; font-size: 11px; font-weight: 800; text-transform: uppercase; color: #64748b; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 12px 15px; font-size: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+            .income-text { color: #15803d; font-weight: 700; }
+            .expense-text { color: #b91c1c; font-weight: 700; }
+            .badge { padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 800; text-transform: uppercase; display: inline-block; }
+            .badge-income { background: #dcfce7; color: #166534; }
+            .badge-expense { background: #fee2e2; color: #991b1b; }
+            
+            .footer { margin-top: 60px; display: flex; justify-content: space-between; align-items: flex-end; }
+            .signature { width: 200px; text-align: center; border-top: 2px solid #e2e8f0; padding-top: 10px; margin-top: 80px; }
+            .signature p { margin: 0; font-size: 12px; font-weight: 800; color: #0f172a; }
+            .timestamp { font-size: 10px; color: #94a3b8; font-style: italic; }
+            
+            @media print {
+              body { padding: 20mm; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="company-info">
+              <h1>KERUPUK BU AKKNA</h1>
+              <p>PEMPEK & KERUPUK - SISTEM ERP TERPADU</p>
+            </div>
+            <div class="report-title">
+              <h2>Laporan Keuangan</h2>
+              <p>Periode: <b>${periodStr}</b></p>
+            </div>
+          </div>
+          
+          <div class="summary-grid">
+            <div class="summary-card income">
+              <span>Total Pemasukan</span>
+              <b>${fmtRp(transactions.filter(t => t.type === 'Income').reduce((s,t) => s + t.amount, 0))}</b>
+            </div>
+            <div class="summary-card expense">
+              <span>Total Pengeluaran</span>
+              <b>${fmtRp(transactions.filter(t => t.type === 'Expense').reduce((s,t) => s + t.amount, 0))}</b>
+            </div>
+            <div class="summary-card profit">
+              <span>Laba / Rugi Bersih</span>
+              <b style="color: ${netProfit >= 0 ? '#10b981' : '#ef4444'}">${fmtRp(netProfit)}</b>
+            </div>
+          </div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tanggal</th>
+                <th>Tipe</th>
+                <th>Kategori</th>
+                <th>Keterangan</th>
+                <th style="text-align: right">Nominal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredTransactions.map(t => `
+                <tr>
+                  <td style="color: #94a3b8; font-family: monospace; font-weight: bold;">${t.id.split('-').pop()}</td>
+                  <td style="font-weight: 600;">${t.date.split(' ')[0]}</td>
+                  <td>
+                    <span class="badge ${t.type === 'Income' ? 'badge-income' : 'badge-expense'}">
+                      ${t.type === 'Income' ? 'Masuk' : 'Keluar'}
+                    </span>
+                  </td>
+                  <td style="font-weight: 700;">${getCategoryLabel(t.category)}</td>
+                  <td style="color: #64748b; font-size: 11px;">${t.description || '-'}</td>
+                  <td style="text-align: right" class="${t.type === 'Income' ? 'income-text' : 'expense-text'}">
+                    ${t.type === 'Income' ? '+' : '-'}${fmtRp(t.amount)}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            <div>
+              <p class="timestamp">Laporan ini dibuat otomatis oleh sistem pada ${reportDate}</p>
+            </div>
+            <div class="signature">
+              <p>Admin Keuangan</p>
+            </div>
+          </div>
+          
+          <script>
+            window.onload = () => {
+              window.print();
+              // window.close(); // Optional: close tab after print
+            };
+          </script>
+        </body>
+      </html>
+    `;
     w.document.write(html);
     w.document.close();
   };

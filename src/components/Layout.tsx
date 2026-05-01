@@ -16,7 +16,8 @@ import {
   Search,
   LogOut,
   CookingPot,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  RotateCcw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -150,6 +151,23 @@ export default function Layout() {
               </div>
             </div>
           </div>
+          <button
+            onClick={() => {
+              if (confirm('Bersihkan cache dan reset aplikasi? Anda akan keluar dari sistem.')) {
+                localStorage.clear();
+                sessionStorage.clear();
+                window.location.reload();
+              }
+            }}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-emerald-500 hover:text-white rounded-xl transition-all duration-200 group active:scale-[0.98]",
+              !isSidebarOpen && "lg:justify-center lg:px-0"
+            )}
+            title="Bersihkan Cache"
+          >
+            <RotateCcw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
+            <span className={cn("text-[10px] font-bold uppercase tracking-[0.1em] transition-all", !isSidebarOpen && "lg:hidden")}>Bersihkan Cache</span>
+          </button>
           <button
             onClick={logout}
             className={cn(

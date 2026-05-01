@@ -18,7 +18,8 @@ import {
   AlertTriangle,
   Factory,
   ShoppingCart,
-  Wallet
+  Wallet,
+  X
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useERP } from '../context/ERPContext';
@@ -32,7 +33,8 @@ export default function Dashboard() {
     lowStockItems,
     salesOrders,
     workOrders,
-    transactions
+    transactions,
+    clearAllData
   } = useERP();
 
   // 1. Calculate Active Orders & Productions
@@ -110,15 +112,28 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="mb-8">
-        <motion.h2
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="text-2xl font-bold text-slate-800"
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <motion.h2
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-2xl font-bold text-slate-800"
+          >
+            Selamat Datang Kembali, {user?.name}! 👋
+          </motion.h2>
+          <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis Kerupuk & Pempek Anda.</p>
+        </div>
+        <button
+          onClick={() => {
+            if (confirm('Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan.')) {
+              clearAllData();
+            }
+          }}
+          className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2 border border-red-100 shadow-sm"
         >
-          Selamat Datang Kembali, {user?.name}! 👋
-        </motion.h2>
-        <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis Kerupuk & Pempek Anda.</p>
+          <X size={16} />
+          Bersihkan Semua Data
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

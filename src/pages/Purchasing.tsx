@@ -5,28 +5,7 @@ import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { PurchaseOrder, Unit, InventoryItem } from '../lib/types';
 
-const PURCHASE_TEMPLATES = [
-  {
-    id: 'tpl-pempek',
-    name: 'Paket Pempek (Ikan + Sagu + Garam)',
-    description: 'Komposisi standar untuk produksi pempek',
-    items: [
-      { materialName: 'Ikan Giling', quantity: 10, unit: 'kg' as Unit },
-      { materialName: 'Tepung Sagu', quantity: 15, unit: 'kg' as Unit },
-      { materialName: 'Garam', quantity: 2, unit: 'kg' as Unit }
-    ]
-  },
-  {
-    id: 'tpl-kerupuk',
-    name: 'Paket Kerupuk (Tapioka + Minyak)',
-    description: 'Bahan utama untuk pembuatan kerupuk',
-    items: [
-      { materialName: 'Tepung Tapioka', quantity: 25, unit: 'kg' as Unit },
-      { materialName: 'Minyak Goreng', quantity: 10, unit: 'L' as Unit },
-      { materialName: 'Penyedap', quantity: 1, unit: 'kg' as Unit }
-    ]
-  }
-];
+const PURCHASE_TEMPLATES: any[] = [];
 
 export default function Purchasing() {
   const { purchaseOrders, createPurchaseOrder, receivePurchaseOrder, inventory, addInventoryItem, updateInventoryItem } = useERP();

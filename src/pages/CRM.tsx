@@ -639,7 +639,7 @@ export default function CRM() {
                   </div>
                   <div>
                     <h1 className="text-3xl font-black text-emerald-600 tracking-tighter leading-none">INVOICE</h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mt-1">Sistem ERP Kedai Kurupuk & Pempek</p>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mt-1">Sistem ERP KITO NIAN</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -651,8 +651,8 @@ export default function CRM() {
               <div className="grid grid-cols-3 gap-8 no-break py-2">
                 <div className="space-y-1 border-r border-slate-100 pr-4">
                   <p className="font-bold text-emerald-600 uppercase text-[9px] mb-1">Status Toko</p>
-                  <p className="font-black text-sm text-slate-900 leading-tight">Kedai Kurupuk & Pempek</p>
-                  <p className="text-slate-600 leading-tight">Jl. Contoh No. 123, Kawasan Lagoi Bay</p>
+                  <p className="font-black text-sm text-slate-900 leading-tight">KITO NIAN</p>
+                  <p className="text-slate-600 leading-tight">Palembang, Sumatera Selatan</p>
                   <p className="text-slate-600 font-medium">WhatsApp: 0812-3456-7890</p>
                 </div>
                 <div className="space-y-1 border-r border-slate-100 pr-4">
@@ -734,7 +734,7 @@ export default function CRM() {
               </div>
               <div className="text-center pt-2 border-t border-dashed border-slate-200 no-break">
                 <p className="text-[9px] text-slate-400 font-bold uppercase tracking-[0.2em] italic">
-                  *** Invoice ini sah dan terhubung dengan database CRM ERP System ***
+                  *** Invoice ini sah dan terhubung dengan database CRM KITO NIAN ***
                 </p>
               </div>
             </div>

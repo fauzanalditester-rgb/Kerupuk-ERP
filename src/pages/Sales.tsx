@@ -54,24 +54,7 @@ export default function Sales() {
   const [currentQty, setCurrentQty] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0);
 
-  const SALES_TEMPLATES = [
-    {
-      id: 'template-pempek-lengkap',
-      name: 'Paket Pempek Lengkap',
-      items: [
-        { productId: 'PEM-LENGKAP', name: 'Pempek Campur', quantity: 20, price: 5000 },
-        { productId: 'CUKO-BKS', name: 'Cuko Bungkus', quantity: 2, price: 10000 }
-      ]
-    },
-    {
-      id: 'template-kerupuk-warung',
-      name: 'Paket Kerupuk Warung',
-      items: [
-        { productId: 'KRP-PANGGANG', name: 'Kerupuk Panggang', quantity: 10, price: 15000 },
-        { productId: 'KRP-IKAN', name: 'Kerupuk Ikan', quantity: 10, price: 12000 }
-      ]
-    }
-  ];
+  const SALES_TEMPLATES: any[] = [];
 
   const handleApplyTemplate = (templateId: string) => {
     const template = SALES_TEMPLATES.find(t => t.id === templateId);
@@ -714,7 +697,7 @@ export default function Sales() {
                   </div>
                   <div>
                     <h3 className="text-xl font-black text-slate-900 leading-none">INVOICE</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Kedai Kurupuk & Pempek</p>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">KITO NIAN</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1232,7 +1215,7 @@ export default function Sales() {
                   </div>
                   <div>
                     <h1 className="text-3xl font-black text-emerald-600 tracking-tighter leading-none">INVOICE</h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mt-1">Sistem ERP Kedai Kurupuk & Pempek</p>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-[8px] mt-1">Sistem ERP KITO NIAN</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1244,8 +1227,8 @@ export default function Sales() {
               <div className="grid grid-cols-3 gap-8 no-break py-2">
                 <div className="space-y-1 border-r border-slate-100 pr-4">
                   <p className="font-bold text-emerald-600 uppercase text-[9px] mb-1">Status Toko</p>
-                  <p className="font-black text-sm text-slate-900 leading-tight">Kedai Kurupuk & Pempek</p>
-                  <p className="text-slate-600 leading-tight">Jl. Contoh No. 123, Kawasan Lagoi Bay</p>
+                  <p className="font-black text-sm text-slate-900 leading-tight">KITO NIAN</p>
+                  <p className="text-slate-600 leading-tight">Palembang, Sumatera Selatan</p>
                   <p className="text-slate-600 font-medium">WhatsApp: 0812-3456-7890</p>
                 </div>
                 <div className="space-y-1 border-r border-slate-100 pr-4">

@@ -256,8 +256,8 @@ export default function Finance() {
         <body>
           <div class="header-info">
             <div class="report-name">
-              <h1>KERUPUK BU AKKNA</h1>
-              <p>PEMPEK & KERUPUK - LAPORAN KEUANGAN SISTEM ERP</p>
+              <h1>KITO NIAN</h1>
+              <p>KITO NIAN - LAPORAN KEUANGAN SISTEM ERP</p>
             </div>
             <div style="text-align: right">
               <h2 style="margin:0; font-weight: 900; font-size: 18px;">RINGKASAN PERIODE</h2>

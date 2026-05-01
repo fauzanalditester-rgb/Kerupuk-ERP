@@ -18,8 +18,7 @@ import {
   AlertTriangle,
   Factory,
   ShoppingCart,
-  Wallet,
-  X
+  Wallet
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useERP } from '../context/ERPContext';
@@ -124,17 +123,7 @@ export default function Dashboard() {
           </motion.h2>
           <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis KITO NIAN Anda.</p>
         </div>
-        <button
-          onClick={() => {
-            if (confirm('Apakah Anda yakin ingin menghapus SEMUA data? Tindakan ini tidak dapat dibatalkan.')) {
-              clearAllData();
-            }
-          }}
-          className="px-4 py-2 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white rounded-xl text-sm font-bold transition-all duration-200 flex items-center gap-2 border border-red-100 shadow-sm"
-        >
-          <X size={16} />
-          Bersihkan Semua Data
-        </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

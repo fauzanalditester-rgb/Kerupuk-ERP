@@ -48,8 +48,20 @@ export default function Finance() {
   const [description, setDescription] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   
-  const [incomeCategories, setIncomeCategories] = useState(() => JSON.parse(localStorage.getItem('erp_income_cats') || '["Sales", "Investment", "Other"]'));
-  const [expenseCategories, setExpenseCategories] = useState(() => JSON.parse(localStorage.getItem('erp_expense_cats') || '["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"]'));
+  const [incomeCategories, setIncomeCategories] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('erp_income_cats') || '["Sales", "Investment", "Other"]');
+    } catch (e) {
+      return ["Sales", "Investment", "Other"];
+    }
+  });
+  const [expenseCategories, setExpenseCategories] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('erp_expense_cats') || '["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"]');
+    } catch (e) {
+      return ["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"];
+    }
+  });
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
@@ -97,6 +109,7 @@ export default function Finance() {
   const cashFlowData = useMemo(() => {
     const months: Record<string, {month: string, masuk: number, keluar: number}> = {};
     transactions.forEach(t => {
+      if (!t.date || t.date.length < 7) return;
       const m = t.date.substring(0, 7); // YYYY-MM
       if (!months[m]) months[m] = { month: m, masuk: 0, keluar: 0 };
       if (t.type === 'Income') months[m].masuk += t.amount;
@@ -112,6 +125,7 @@ export default function Finance() {
   const plData = useMemo(() => {
     const months: Record<string, {month: string, pendapatan: number, beban: number, laba: number}> = {};
     transactions.filter(t => !t.isDebtPayment).forEach(t => {
+      if (!t.date || t.date.length < 7) return;
       const m = t.date.substring(0, 7);
       if (!months[m]) months[m] = { month: m, pendapatan: 0, beban: 0, laba: 0 };
       if (t.type === 'Income') months[m].pendapatan += t.amount;

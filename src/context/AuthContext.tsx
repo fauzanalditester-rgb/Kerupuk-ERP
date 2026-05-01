@@ -5,6 +5,7 @@ interface AuthContextType {
     user: User | null;
     login: (username: string, password: string) => Promise<boolean>;
     logout: () => void;
+    updateCredentials: (newUsername: string, newPassword: string) => Promise<boolean>;
     isLoading: boolean;
 }
 
@@ -23,20 +24,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const storedUser = localStorage.getItem('erp_session');
-        if (storedUser) {
-            setUser(JSON.parse(storedUser));
+        try {
+            const storedUser = localStorage.getItem('erp_session');
+            if (storedUser) {
+                setUser(JSON.parse(storedUser));
+            }
+        } catch (e) {
+            console.error('Failed to parse session:', e);
+            localStorage.removeItem('erp_session');
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     }, []);
 
     const login = async (username: string, password: string): Promise<boolean> => {
-        // Mock authentication: accepting any non-empty password for simplicity
-        // For production, this should call an API and use proper password hashing
-        if (username === 'admin' && password === 'admin123') {
+        const storedCreds = JSON.parse(localStorage.getItem('erp_creds') || '{"username":"admin","password":"admin123"}');
+        
+        if (username === storedCreds.username && password === storedCreds.password) {
             const mockUser: User = {
                 id: '1',
-                username: 'admin',
+                username: storedCreds.username,
                 name: 'Admin Toko',
                 role: 'admin'
             };
@@ -52,8 +59,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('erp_session');
     };
 
+    const updateCredentials = async (newUsername: string, newPassword: string): Promise<boolean> => {
+        try {
+            const creds = { username: newUsername, password: newPassword };
+            localStorage.setItem('erp_creds', JSON.stringify(creds));
+            
+            // Update current session if logged in
+            if (user) {
+                const updatedUser = { ...user, username: newUsername };
+                setUser(updatedUser);
+                localStorage.setItem('erp_session', JSON.stringify(updatedUser));
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, isLoading }}>
+        <AuthContext.Provider value={{ user, login, logout, updateCredentials, isLoading }}>
             {children}
         </AuthContext.Provider>
     );

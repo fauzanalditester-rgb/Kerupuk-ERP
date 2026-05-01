@@ -10,6 +10,7 @@ import Sales from './pages/Sales';
 import CRM from './pages/CRM';
 import Finance from './pages/Finance';
 import HR from './pages/HR';
+import Settings from './pages/Settings';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import { ERPProvider } from './context/ERPContext';
@@ -60,6 +61,7 @@ function App() {
               <Route path="crm" element={<CRM />} />
               <Route path="finance" element={<Finance />} />
               <Route path="hr" element={<HR />} />
+              <Route path="settings" element={<Settings />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

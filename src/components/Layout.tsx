@@ -15,10 +15,11 @@ import {
   Bell,
   Search,
   LogOut,
-  CookingPot
+  CookingPot,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const sidebarItems = [
   { name: 'Dashboard', icon: LayoutDashboard, path: '/' },
@@ -30,6 +31,7 @@ const sidebarItems = [
   { name: 'CRM', icon: Users, path: '/crm' },
   { name: 'Keuangan', icon: Wallet, path: '/finance' },
   { name: 'SDM & Penggajian', icon: UserCog, path: '/hr' },
+  { name: 'Pengaturan Akun', icon: SettingsIcon, path: '/settings' },
 ];
 
 export default function Layout() {
@@ -81,7 +83,7 @@ export default function Layout() {
               <span className="text-white text-xl font-black">K</span>
             </div>
             <div className="flex flex-col leading-tight">
-              <span className="text-white tracking-tight">Kerupuk<span className="text-emerald-500">ERP</span></span>
+              <span className="text-white tracking-tight">KITO <span className="text-emerald-500">NIAN</span></span>
               <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-medium">Business System</span>
             </div>
           </div>

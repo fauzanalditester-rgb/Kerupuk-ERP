@@ -50,7 +50,7 @@ export default function ForgotPassword() {
                                         type="email"
                                         required
                                         className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
-                                        placeholder="admin@kerupuk.com"
+                                        placeholder="admin@kitonian.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />

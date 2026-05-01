@@ -164,57 +164,57 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Jika Cloud memiliki data (> 0), tarik datanya untuk menggantikan Local.
         // Jika Cloud kosong, tapi Local punya data (> 0), jangan hapus data Local! Unggah ke Cloud.
 
-        if (cloudData['erp_v7_inventory'] && cloudData['erp_v7_inventory'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_inventory']) && cloudData['erp_v7_inventory'].length > 0) {
           setInventory(cloudData['erp_v7_inventory']);
-        } else if (inventory.length > 0) {
+        } else if (Array.isArray(inventory) && inventory.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_workOrders'] && cloudData['erp_v7_workOrders'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_workOrders']) && cloudData['erp_v7_workOrders'].length > 0) {
           setWorkOrders(cloudData['erp_v7_workOrders']);
-        } else if (workOrders.length > 0) {
+        } else if (Array.isArray(workOrders) && workOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_salesOrders'] && cloudData['erp_v7_salesOrders'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_salesOrders']) && cloudData['erp_v7_salesOrders'].length > 0) {
           setSalesOrders(cloudData['erp_v7_salesOrders']);
-        } else if (salesOrders.length > 0) {
+        } else if (Array.isArray(salesOrders) && salesOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_purchaseOrders'] && cloudData['erp_v7_purchaseOrders'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_purchaseOrders']) && cloudData['erp_v7_purchaseOrders'].length > 0) {
           setPurchaseOrders(cloudData['erp_v7_purchaseOrders']);
-        } else if (purchaseOrders.length > 0) {
+        } else if (Array.isArray(purchaseOrders) && purchaseOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_transactions'] && cloudData['erp_v7_transactions'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_transactions']) && cloudData['erp_v7_transactions'].length > 0) {
           setTransactions(cloudData['erp_v7_transactions']);
-        } else if (transactions.length > 0) {
+        } else if (Array.isArray(transactions) && transactions.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_customers'] && cloudData['erp_v7_customers'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_customers']) && cloudData['erp_v7_customers'].length > 0) {
           setCustomers(cloudData['erp_v7_customers']);
-        } else if (customers.length > 0) {
+        } else if (Array.isArray(customers) && customers.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_employees'] && cloudData['erp_v7_employees'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_employees']) && cloudData['erp_v7_employees'].length > 0) {
           setEmployees(cloudData['erp_v7_employees']);
-        } else if (employees.length > 0) {
+        } else if (Array.isArray(employees) && employees.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_stockMovements'] && cloudData['erp_v7_stockMovements'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_stockMovements']) && cloudData['erp_v7_stockMovements'].length > 0) {
           setStockMovements(cloudData['erp_v7_stockMovements']);
-        } else if (stockMovements.length > 0) {
+        } else if (Array.isArray(stockMovements) && stockMovements.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (cloudData['erp_v7_recipes'] && cloudData['erp_v7_recipes'].length > 0) {
+        if (Array.isArray(cloudData['erp_v7_recipes']) && cloudData['erp_v7_recipes'].length > 0) {
           setRecipes(cloudData['erp_v7_recipes']);
-        } else if (recipes.length > 0) {
+        } else if (Array.isArray(recipes) && recipes.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
         }
 
@@ -590,7 +590,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const keys = [
       'erp_v7_inventory', 'erp_v7_workOrders', 'erp_v7_salesOrders', 
       'erp_v7_purchaseOrders', 'erp_v7_transactions', 'erp_v7_customers', 
-      'erp_v7_employees', 'erp_v7_stockMovements', 'erp_v7_recipes'
+      'erp_v7_employees', 'erp_v7_stockMovements', 'erp_v7_recipes',
+      'erp_income_cats', 'erp_expense_cats'
     ];
     keys.forEach(key => localStorage.removeItem(key));
 

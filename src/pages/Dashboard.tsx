@@ -46,6 +46,7 @@ export default function Dashboard() {
     // Group transactions by date
     const groupedData = transactions.reduce((acc, curr) => {
       // simplify date string to just MM-DD for cleaner X-Axis (e.g. "2024-03-01" -> "03-01")
+      if (!curr.date || curr.date.length < 10) return acc;
       const dateKey = curr.date.substring(5, 10);
 
       if (!acc[dateKey]) {
@@ -121,7 +122,7 @@ export default function Dashboard() {
           >
             Selamat Datang Kembali, {user?.name}! 👋
           </motion.h2>
-          <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis Kerupuk & Pempek Anda.</p>
+          <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis KITO NIAN Anda.</p>
         </div>
         <button
           onClick={() => {

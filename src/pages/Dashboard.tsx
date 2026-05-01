@@ -123,7 +123,6 @@ export default function Dashboard() {
           </motion.h2>
           <p className="text-slate-500 mt-1">Berikut adalah ringkasan live performa bisnis KITO NIAN Anda.</p>
         </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

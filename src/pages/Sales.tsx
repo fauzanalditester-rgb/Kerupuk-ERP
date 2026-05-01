@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle } from 'lucide-react';
+import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle, Trash2 } from 'lucide-react';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { SalesOrder } from '../lib/types';
@@ -10,6 +10,8 @@ export default function Sales() {
     salesOrders,
     createSalesOrder,
     completeSalesOrder,
+    deleteSalesOrder,
+    updateSalesOrder,
     inventory,
     updateInventoryItem,
     customers,
@@ -18,6 +20,7 @@ export default function Sales() {
   } = useERP();
   const [activeTab, setActiveTab] = useState<'orders' | 'pricelist'>('orders');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState<SalesOrder | null>(null);
 
@@ -38,7 +41,7 @@ export default function Sales() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; unit: string }[]>([]);
+  const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; discount: number; unit: string }[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
   const [soDate, setSoDate] = useState(new Date().toISOString().split('T')[0]);
@@ -53,6 +56,7 @@ export default function Sales() {
   const [currentItemId, setCurrentItemId] = useState('');
   const [currentQty, setCurrentQty] = useState(0);
   const [currentPrice, setCurrentPrice] = useState(0);
+  const [currentDiscount, setCurrentDiscount] = useState(0);
 
   const SALES_TEMPLATES: any[] = [];
 
@@ -67,6 +71,7 @@ export default function Sales() {
         productName: invItem?.name || tItem.name,
         quantity: tItem.quantity,
         price: invItem?.price || tItem.price,
+        discount: tItem.discount || 0,
         unit: invItem?.unit || 'pcs'
       };
     });
@@ -83,11 +88,13 @@ export default function Sales() {
           productName: item.name,
           quantity: currentQty,
           price: currentPrice || item.price,
+          discount: currentDiscount || 0,
           unit: item.unit
         }]);
         setCurrentItemId('');
         setCurrentQty(0);
         setCurrentPrice(0);
+        setCurrentDiscount(0);
       }
     }
   };
@@ -159,15 +166,21 @@ export default function Sales() {
           productName: item.name,
           quantity: currentQty,
           price: currentPrice || item.price,
+          discount: currentDiscount || 0,
           unit: item.unit
         });
       }
     }
 
     if (customerName && finalItemsForSO.length > 0) {
-      const subtotal = finalItemsForSO.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const discountAmount = Math.round((subtotal * discount) / 100);
-      const finalTotal = Math.round(subtotal - discountAmount);
+      const subtotalBeforeGlobalDiscount = finalItemsForSO.reduce((sum, item) => {
+        const itemSubtotal = item.price * item.quantity;
+        const itemDiscount = (itemSubtotal * (item.discount || 0)) / 100;
+        return sum + (itemSubtotal - itemDiscount);
+      }, 0);
+      
+      const discountAmount = Math.round((subtotalBeforeGlobalDiscount * discount) / 100);
+      const finalTotal = Math.round(subtotalBeforeGlobalDiscount - discountAmount);
 
       const getNowWithTime = () => {
         const now = new Date();
@@ -175,58 +188,79 @@ export default function Sales() {
         return soDate.includes(' ') ? soDate : `${soDate} ${timeStr}`;
       };
 
-      const newSO: SalesOrder = {
-        id: `SO-${Date.now()}`,
-        customerName,
-        customerPhone,
-        customerEmail,
-        customerAddress,
-        date: getNowWithTime(),
-        items: finalItemsForSO.map(item => ({
-          productId: item.productId,
-          quantity: item.quantity,
-          price: Math.round(item.price)
-        })),
-        totalAmount: finalTotal,
-        discount: discount,
-        paymentMethod: paymentMethod,
-        status: 'Processing',
-        dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
-        isPaid: paymentMethod === 'Cash'
-      };
-
-      createSalesOrder(newSO);
-
-      // Sync CRM data: Update existing or add new customer (Strong Match)
-      const existingCustomer = customers.find(c =>
-        c.name.toLowerCase().trim() === customerName.toLowerCase().trim()
-      );
-      if (existingCustomer) {
-        updateCustomer(existingCustomer.id, {
-          email: customerEmail || existingCustomer.email,
-          phone: customerPhone || existingCustomer.phone,
-          address: customerAddress || existingCustomer.address,
-          totalOrders: (existingCustomer.totalOrders || 0) + 1,
-          totalSpent: (existingCustomer.totalSpent || 0) + finalTotal,
-          lastOrderDate: soDate
+      if (editingSO) {
+        updateSalesOrder(editingSO.id, {
+          customerName,
+          customerPhone,
+          customerEmail,
+          customerAddress,
+          date: getNowWithTime(),
+          items: finalItemsForSO.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: Math.round(item.price),
+            discount: item.discount
+          })),
+          totalAmount: finalTotal,
+          paymentMethod: paymentMethod,
+          dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
         });
       } else {
-        addCustomer({
-          id: `CUST-${Date.now()}`,
-          name: customerName,
-          email: customerEmail,
-          phone: customerPhone,
-          address: customerAddress,
-          totalOrders: 1,
-          totalSpent: finalTotal,
-          lastOrderDate: soDate
-        });
-      }
+        const newSO: SalesOrder = {
+          id: `SO-${Date.now()}`,
+          customerName,
+          customerPhone,
+          customerEmail,
+          customerAddress,
+          date: getNowWithTime(),
+          items: finalItemsForSO.map(item => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            price: Math.round(item.price),
+            discount: item.discount
+          })),
+          totalAmount: finalTotal,
+          discount: 0,
+          paymentMethod: paymentMethod,
+          status: 'Processing',
+          dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
+          isPaid: paymentMethod === 'Cash'
+        };
 
-      if (autoComplete) {
-        completeSalesOrder(newSO.id, newSO);
+        createSalesOrder(newSO);
+
+        // Sync CRM data: Update existing or add new customer (Strong Match)
+        const existingCustomer = customers.find(c =>
+          c.name.toLowerCase().trim() === customerName.toLowerCase().trim()
+        );
+        if (existingCustomer) {
+          updateCustomer(existingCustomer.id, {
+            email: customerEmail || existingCustomer.email,
+            phone: customerPhone || existingCustomer.phone,
+            address: customerAddress || existingCustomer.address,
+            totalOrders: (existingCustomer.totalOrders || 0) + 1,
+            totalSpent: (existingCustomer.totalSpent || 0) + finalTotal,
+            lastOrderDate: soDate
+          });
+        } else {
+          addCustomer({
+            id: `CUST-${Date.now()}`,
+            name: customerName,
+            email: customerEmail,
+            phone: customerPhone,
+            address: customerAddress,
+            totalOrders: 1,
+            totalSpent: finalTotal,
+            lastOrderDate: soDate
+          });
+        }
+
+        if (autoComplete) {
+          completeSalesOrder(newSO.id, newSO);
+        }
       }
       setIsModalOpen(false);
+      setEditingSO(null);
 
       // Reset all states
       setCustomerName('');
@@ -245,6 +279,7 @@ export default function Sales() {
       setCurrentItemId('');
       setCurrentQty(0);
       setCurrentPrice(0);
+      setCurrentDiscount(0);
     } else if (finalItemsForSO.length === 0) {
       alert('Mohon pilih setidaknya satu produk (klik tanda + atau isi jumlah barang).');
     }
@@ -275,11 +310,6 @@ export default function Sales() {
     return item?.name || productId;
   };
 
-  const getProductUnit = (productId: string) => {
-    const item = inventory.find(i => i.id === productId);
-    return item?.unit || '';
-  };
-
   const getSalesUnit = (productId: string) => {
     const item = inventory.find(i => i.id === productId);
     if (!item) return '';
@@ -302,8 +332,8 @@ export default function Sales() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Penjualan</h1>
-          <p className="text-slate-500 mt-1">Kelola pesanan penjualan dan faktur.</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Management Penjualan</h1>
+          <p className="text-slate-500 text-sm font-medium">Kelola pesanan, pelanggan, dan pengiriman barang.</p>
         </div>
         <div className="flex items-center gap-3">
           {activeTab === 'pricelist' && (
@@ -316,11 +346,21 @@ export default function Sales() {
             </button>
           )}
           <button
-            onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 shadow-sm shadow-emerald-200 transition-colors"
+            onClick={() => {
+              setEditingSO(null);
+              setCustomerName('');
+              setCustomerEmail('');
+              setCustomerPhone('');
+              setCustomerAddress('');
+              setSoItems([]);
+              setPaymentMethod('Cash');
+              setSoDate(new Date().toISOString().split('T')[0]);
+              setIsModalOpen(true);
+            }}
+            className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95 font-bold"
           >
-            <Plus size={18} />
-            Pesanan Penjualan Baru
+            <Plus size={20} />
+            Buat Pesanan
           </button>
         </div>
       </div>
@@ -556,6 +596,42 @@ export default function Sales() {
                                 <CheckCircle size={16} />
                               </button>
                             )}
+                            <button
+                              onClick={() => {
+                                setEditingSO(so);
+                                setCustomerName(so.customerName);
+                                setCustomerEmail(so.customerEmail || '');
+                                setCustomerPhone(so.customerPhone || '');
+                                setCustomerAddress(so.customerAddress || '');
+                                setSoItems(so.items.map(item => ({
+                                  productId: item.productId,
+                                  productName: getProductName(item.productId),
+                                  quantity: item.quantity,
+                                  price: item.price,
+                                  discount: item.discount || 0,
+                                  unit: inventory.find(i => i.id === item.productId)?.unit || 'pcs'
+                                })));
+                                setPaymentMethod(so.paymentMethod);
+                                setSoDate(so.date.split(' ')[0]);
+                                setDueDate(so.dueDate || '');
+                                setIsModalOpen(true);
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                              title="Edit Pesanan"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm('Apakah Anda yakin ingin menghapus pesanan ini? Jika sudah selesai, stok akan dikembalikan.')) {
+                                  deleteSalesOrder(so.id);
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                              title="Hapus Pesanan"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -789,8 +865,15 @@ export default function Sales() {
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
                         <td className="px-5 py-4 font-bold text-slate-900">{getProductName(item.productId)}</td>
                         <td className="px-5 py-4 text-center font-black text-slate-700 bg-slate-50/50">{item.quantity} {getSalesUnit(item.productId)}</td>
-                        <td className="px-5 py-4 text-right text-slate-500 italic">Rp {item.price.toLocaleString()}</td>
-                        <td className="px-5 py-4 text-right font-black text-slate-900">Rp {(item.quantity * item.price).toLocaleString()}</td>
+                        <td className="px-5 py-4 text-right text-slate-500 italic">
+                          Rp {item.price.toLocaleString()}
+                          {item.discount > 0 && (
+                            <span className="block text-[9px] text-orange-500">Disc {item.discount}%</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4 text-right font-black text-slate-900">
+                          Rp {Math.round((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -799,7 +882,7 @@ export default function Sales() {
                       <tr>
                         <td colSpan={3} className="px-5 py-2 text-right text-[10px] font-bold uppercase tracking-widest text-slate-400 italic">Diskon {selectedSO.discount}%:</td>
                         <td className="px-5 py-2 text-right text-orange-400 text-xs italic">
-                          - Rp {((selectedSO.items.reduce((sum, i) => sum + (i.quantity * i.price), 0) * selectedSO.discount) / 100).toLocaleString()}
+                          - Rp {((selectedSO.items.reduce((sum, i) => sum + (i.quantity * i.price * (1 - (i.discount || 0) / 100)), 0) * selectedSO.discount) / 100).toLocaleString()}
                         </td>
                       </tr>
                     )}
@@ -850,10 +933,13 @@ export default function Sales() {
       })()}
     </Modal>
 
-      <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Buat Pesanan Penjualan"
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingSO(null);
+        }} 
+        title={editingSO ? `Edit Pesanan: ${editingSO.id}` : "Buat Pesanan Penjualan Baru"}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -970,6 +1056,17 @@ export default function Sales() {
                   onChange={e => setCurrentPrice(Number(e.target.value))}
                 />
               </div>
+              <div className="w-16">
+                <label className="block text-[10px] text-slate-500 mb-1 font-bold">DISC%</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  className="w-full px-2 py-1.5 text-sm border border-slate-200 rounded focus:outline-none"
+                  value={currentDiscount || ''}
+                  onChange={e => setCurrentDiscount(Number(e.target.value))}
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleAddItem}
@@ -987,6 +1084,7 @@ export default function Sales() {
                   <tr>
                     <th className="px-3 py-2 text-left">Barang</th>
                     <th className="px-3 py-2 text-center">Jumlah</th>
+                    <th className="px-3 py-2 text-right">Disc%</th>
                     <th className="px-3 py-2 text-right">Subtotal</th>
                     <th className="px-3 py-2 text-center w-8"></th>
                   </tr>
@@ -999,8 +1097,9 @@ export default function Sales() {
                         <p className="text-[10px] text-slate-400">Rp {item.price.toLocaleString()}</p>
                       </td>
                       <td className="px-3 py-2 text-center">{item.quantity} {getSalesUnit(item.productId)}</td>
+                      <td className="px-3 py-2 text-right text-orange-500 font-medium">{item.discount > 0 ? `${item.discount}%` : '-'}</td>
                       <td className="px-3 py-2 text-right font-bold text-slate-900">
-                        Rp {Math.round(item.quantity * item.price).toLocaleString()}
+                        Rp {Math.round((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString()}
                       </td>
                       <td className="px-3 py-2 text-center">
                         <button type="button" onClick={() => handleRemoveItem(idx)} className="text-slate-300 hover:text-red-500">
@@ -1013,8 +1112,8 @@ export default function Sales() {
                 <tfoot className="bg-slate-50 font-bold border-t border-slate-100">
                   <tr>
                     <td colSpan={2} className="px-3 py-2 text-right text-slate-400">TOTAL:</td>
-                    <td className="px-3 py-2 text-right text-emerald-600">
-                      Rp {Math.round(soItems.reduce((sum, i) => sum + (i.price * i.quantity), 0)).toLocaleString()}
+                    <td colSpan={2} className="px-3 py-2 text-right text-emerald-600">
+                      Rp {Math.round(soItems.reduce((sum, i) => sum + (i.price * i.quantity * (1 - (i.discount || 0) / 100)), 0)).toLocaleString()}
                     </td>
                     <td></td>
                   </tr>
@@ -1023,108 +1122,55 @@ export default function Sales() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Diskon (%)</label>
-              <div className="relative">
+          <div className="py-4 border-t border-slate-100 flex flex-col items-center">
+            <label className="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
+            <div className="flex gap-2 w-full max-w-[280px]">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('Cash')}
+                className={cn(
+                  "flex-1 py-2 rounded-lg border text-xs font-bold transition-all",
+                  paymentMethod === 'Cash' ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
+                )}
+              >
+                CASH
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('Debt')}
+                className={cn(
+                  "flex-1 py-2 rounded-lg border text-xs font-bold transition-all",
+                  paymentMethod === 'Debt' ? "bg-red-600 text-white border-red-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
+                )}
+              >
+                UTANG
+              </button>
+            </div>
+            {paymentMethod === 'Debt' && (
+              <div className="mt-3 w-full max-w-[280px] animate-in fade-in slide-in-from-top-1">
+                <label className="block text-[10px] font-black text-rose-600 uppercase mb-1 tracking-widest text-center">
+                  Tanggal Jatuh Tempo (UTANG)
+                </label>
                 <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  value={discount || ''}
-                  onChange={e => setDiscount(Number(e.target.value))}
-                  placeholder="0"
+                  type="date"
+                  className="w-full px-3 py-2 border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-rose-50/30 text-xs font-bold text-center"
+                  value={dueDate}
+                  onChange={e => setDueDate(e.target.value)}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold">%</span>
               </div>
-              {(() => {
-                const subtotalFromList = soItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-                const currentItemSubtotal = (currentQty > 0) ? (currentPrice || 0) * currentQty : 0;
-                const subtotal = subtotalFromList + currentItemSubtotal;
-
-                const discountAmount = Math.round((subtotal * (discount || 0)) / 100);
-                const finalTotal = subtotal - discountAmount;
-                if (discount > 0 && subtotal > 0) {
-                  return (
-                    <div className="mt-3 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                      {/* LABEL HASIL POTONGAN */}
-                      <div className="p-3 bg-white border-2 border-dashed border-emerald-200 rounded-xl flex justify-between items-center shadow-sm">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Hasil Potongan ({discount}%):</span>
-                          <span className="text-lg font-black text-emerald-600 leading-none">
-                            Rp {discountAmount.toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="h-8 w-px bg-slate-100 mx-2" />
-                        <div className="flex flex-col text-right">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Harga Akhir:</span>
-                          <span className="text-lg font-black text-slate-900 leading-none tracking-tighter">
-                            Rp {finalTotal.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      <p className="text-[9px] text-center font-bold text-slate-400 uppercase tracking-tighter">
-                        * Nilai di atas otomatis dihitung dari {discount}% subtotal
-                      </p>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Metode Pembayaran</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('Cash')}
-                  className={cn(
-                    "py-2 rounded-lg border text-xs font-bold transition-all",
-                    paymentMethod === 'Cash' ? "bg-emerald-600 text-white border-emerald-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
-                  )}
-                >
-                  CASH
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('Debt')}
-                  className={cn(
-                    "py-2 rounded-lg border text-xs font-bold transition-all",
-                    paymentMethod === 'Debt' ? "bg-red-600 text-white border-red-600 shadow-sm" : "bg-slate-50 text-slate-400 border-slate-100"
-                  )}
-                >
-                  UTANG
-                </button>
-              </div>
-              {paymentMethod === 'Debt' && (
-                <div className="mt-3 animate-in fade-in slide-in-from-top-1">
-                  <label className="block text-[10px] font-black text-rose-600 uppercase mb-1 tracking-widest">
-                    Tanggal Jatuh Tempo (UTANG)
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full px-3 py-2 border border-rose-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 bg-rose-50/30 text-xs font-bold"
-                    value={dueDate}
-                    onChange={e => setDueDate(e.target.value)}
-                  />
-                  <p className="text-[9px] text-rose-400 mt-1 italic">* Pesanan akan muncul di peringatan Finance jika belum lunas.</p>
-                </div>
-              )}
-            </div>
+            )}
           </div>
 
           {/* Real-time Order Summary */}
           {(() => {
-            const subtotalFromList = soItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            const currentItemSubtotal = (currentQty > 0) ? (currentPrice || 0) * currentQty : 0;
+            const subtotalFromList = soItems.reduce((sum, item) => sum + (item.price * item.quantity * (1 - (item.discount || 0) / 100)), 0);
+            const currentItemSubtotal = (currentQty > 0) ? (currentPrice || 0) * currentQty * (1 - (currentDiscount || 0) / 100) : 0;
             const subtotal = subtotalFromList + currentItemSubtotal;
 
             const discountAmount = Math.round((subtotal * (discount || 0)) / 100);
             const finalTotal = subtotal - discountAmount;
 
-            if (subtotal > 0) {
+            if (finalTotal > 0) {
               return (
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 space-y-3 shadow-inner animate-in fade-in zoom-in duration-300">
                   <div className="flex justify-between text-xs text-slate-400 font-bold uppercase tracking-widest">
@@ -1138,7 +1184,7 @@ export default function Sales() {
                     {discount > 0 && (
                       <>
                         <div className="flex justify-between text-sm text-orange-400 font-medium italic">
-                          <span>Potongan Diskon ({discount}%)</span>
+                          <span>Potongan Diskon Global ({discount}%)</span>
                           <span>- Rp {discountAmount.toLocaleString()}</span>
                         </div>
                         <div className="flex justify-between text-sm text-emerald-300 font-bold border-t border-slate-800 pt-1 mt-1">
@@ -1279,9 +1325,14 @@ export default function Sales() {
                         <td className="px-3 py-2 text-center text-slate-600 bg-slate-50/50">
                           {item.quantity} {getSalesUnit(item.productId)}
                         </td>
-                        <td className="px-3 py-2 text-right text-slate-600 italic">Rp {item.price.toLocaleString()}</td>
+                        <td className="px-3 py-2 text-right text-slate-600 italic">
+                          Rp {item.price.toLocaleString()}
+                          {item.discount > 0 && (
+                            <span className="block text-[8px] text-orange-500 font-bold">Disc {item.discount}%</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right font-black text-slate-900 bg-emerald-50/30">
-                          Rp {(item.quantity * item.price).toLocaleString()}
+                          Rp {Math.round((item.quantity * item.price) * (1 - (item.discount || 0) / 100)).toLocaleString()}
                         </td>
                       </tr>
                     ))}
@@ -1304,12 +1355,12 @@ export default function Sales() {
                   <div className="w-72 space-y-1 border-t-2 border-slate-100 pt-2">
                     <div className="flex justify-between items-center text-slate-500 px-2 text-[10px]">
                       <span>Tagihan Barang:</span>
-                      <span className="font-bold">Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0).toLocaleString()}</span>
+                      <span className="font-bold">Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (1 - (item.discount || 0) / 100)), 0).toLocaleString()}</span>
                     </div>
                     {selectedSO.discount > 0 && (
                       <div className="flex justify-between items-center text-emerald-600 px-2 bg-emerald-50 py-1 rounded text-[10px]">
                         <span className="font-black italic text-[9px]">Diskon Khusus ({selectedSO.discount}%):</span>
-                        <span className="font-black">- Rp {((selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0) * selectedSO.discount) / 100).toLocaleString()}</span>
+                        <span className="font-black">- Rp {((selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (1 - (item.discount || 0) / 100)), 0) * selectedSO.discount) / 100).toLocaleString()}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center bg-slate-900 text-white p-3 rounded-lg shadow-inner mt-2">

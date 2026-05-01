@@ -45,6 +45,8 @@ interface ERPContextType {
   deleteCustomer: (id: string) => void;
   payDebt: (poId: string, amount: number) => void;
   collectPayment: (soId: string, amount: number) => void;
+  deleteSalesOrder: (id: string) => void;
+  updateSalesOrder: (id: string, updates: Partial<SalesOrder>) => void;
 
   // Stats
   totalRevenue: number;
@@ -574,6 +576,35 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [salesOrders, transactions]);
 
+  const deleteSalesOrder = useCallback((id: string) => {
+    const so = salesOrders.find(s => s.id === id);
+    if (!so) return;
+
+    // 1. Revert stock if completed
+    if (so.status === 'Completed') {
+      so.items.forEach(item => {
+        const inventoryItem = inventory.find(i => i.id === item.productId);
+        const isKg = inventoryItem?.unit === 'kg';
+        const finalRestorationAmount = (isKg && inventoryItem?.category !== 'Kerupuk')
+          ? Number((item.quantity / 32).toFixed(5))
+          : item.quantity;
+        updateInventoryStock(item.productId, finalRestorationAmount, 'In', `Pembatalan ${so.id}`, so.id);
+      });
+
+      // 2. Remove associated transaction
+      setTransactions(prev => prev.filter(t => t.referenceId !== id));
+      
+      // 3. Remove stock movements
+      setStockMovements(prev => prev.filter(m => m.referenceId !== id));
+    }
+
+    setSalesOrders(prev => prev.filter(s => s.id !== id));
+  }, [salesOrders, inventory, updateInventoryStock]);
+
+  const updateSalesOrder = useCallback((id: string, updates: Partial<SalesOrder>) => {
+    setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  }, []);
+
 
   const contextValue = useMemo(() => ({
     inventory,
@@ -607,6 +638,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     deleteCustomer,
     payDebt,
     collectPayment,
+    deleteSalesOrder,
+    updateSalesOrder,
     totalRevenue,
     totalExpenses,
     netProfit,
@@ -621,6 +654,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     completeSalesOrder, createPurchaseOrder, receivePurchaseOrder,
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
     updateRecipe, deleteRecipe, deleteWorkOrder, deleteCustomer, payDebt, collectPayment,
+    deleteSalesOrder, updateSalesOrder,
     totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems
   ]);
 

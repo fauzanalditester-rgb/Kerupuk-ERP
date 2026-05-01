@@ -41,7 +41,7 @@ export interface SalesOrder {
   customerEmail?: string;
   customerAddress?: string;
   date: string;
-  items: { productId: string; quantity: number; price: number }[];
+  items: { productId: string; quantity: number; price: number; discount?: number }[];
   totalAmount: number;
   discount?: number; // In percentage
   paymentMethod: PaymentMethod;

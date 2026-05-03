@@ -15,7 +15,8 @@ import { cn } from '../lib/utils';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { InventoryItem, Category, Unit, StockMovement } from '../lib/types';
-  
+import { exportToExcelFormatted } from '../lib/export';
+
 export default function Inventory() {
   const [activeTab, setActiveTab] = useState<'raw' | 'finished' | 'supply'>('raw');
   const { inventory, addInventoryItem, stockMovements, updateInventoryStock, addTransaction } = useERP();
@@ -215,39 +216,36 @@ export default function Inventory() {
   };
 
   const handleExportCSV = () => {
-    const headers = activeTab === 'raw'
-      ? ['Kategori', 'Nama Barang', 'Stok Kg', 'Harga Satuan', 'Total Nilai', 'Status', 'Tanggal Input']
-      : ['Kategori', 'Nama Barang', 'Stok Kg', 'Stok Unit (PCS/BKS)', 'Status', 'Tanggal Input'];
-
-    const rows = currentItems.map(item => {
+    const dataToExport = currentItems.map(item => {
+      const isLow = item.stock <= (item.minStock || 5);
       if (activeTab === 'raw') {
-        return [
-          item.category,
-          item.name,
-          `${item.stock} ${item.unit}`,
-          item.price,
-          item.stock * item.price,
-          item.stock <= item.minStock ? 'Stok Rendah' : 'Baik',
-          item.createdAt
-        ];
+        return {
+          'Kategori': item.category,
+          'Nama Barang': item.name,
+          'Stok': `${item.stock} ${item.unit}`,
+          'Harga Satuan': item.price,
+          'Total Nilai': item.stock * item.price,
+          'Status': isLow ? 'Stok Rendah' : 'Baik',
+          'Tanggal Input': item.createdAt
+        };
       } else {
-        return [
-          item.category,
-          item.name,
-          item.stock,
-          (item.unit === 'kg' && item.category !== 'Kerupuk') ? Math.round(item.stock * 32) : item.stock,
-          item.stock <= item.minStock ? 'Stok Rendah' : 'Baik',
-          item.createdAt
-        ];
+        return {
+          'Kategori': item.category,
+          'Nama Barang': item.name,
+          'Stok KG': item.stock,
+          'Stok Unit (PCS/BKS)': (item.unit === 'kg' && item.category !== 'Kerupuk') ? Math.round(item.stock * 32) : item.stock,
+          'Status': isLow ? 'Stok Rendah' : 'Baik',
+          'Tanggal Input': item.createdAt
+        };
       }
     });
 
-    const csvContent = [headers, ...rows].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `inventaris_${activeTab}_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+    exportToExcelFormatted(
+      `inventaris_${activeTab}_${new Date().toISOString().split('T')[0]}.xls`,
+      `LAPORAN INVENTARIS - ${activeTab.toUpperCase()}`,
+      dataToExport,
+      activeTab === 'raw' ? '#3b82f6' : '#10b981'
+    );
   };
 
   return (

@@ -55,6 +55,7 @@ interface ERPContextType {
   totalReceivables: number;
   totalPayables: number;
   lowStockItems: InventoryItem[];
+  clearAllData: () => Promise<void>;
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
@@ -165,55 +166,55 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Jika Cloud memiliki data (> 0), tarik datanya untuk menggantikan Local.
         // Jika Cloud kosong, tapi Local punya data (> 0), jangan hapus data Local! Unggah ke Cloud.
 
-        if (Array.isArray(cloudData['erp_v7_inventory']) && cloudData['erp_v7_inventory'].length > 0) {
+        if (cloudData['erp_v7_inventory'] !== undefined) {
           setInventory(cloudData['erp_v7_inventory']);
         } else if (Array.isArray(inventory) && inventory.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_workOrders']) && cloudData['erp_v7_workOrders'].length > 0) {
+        if (cloudData['erp_v7_workOrders'] !== undefined) {
           setWorkOrders(cloudData['erp_v7_workOrders']);
         } else if (Array.isArray(workOrders) && workOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_salesOrders']) && cloudData['erp_v7_salesOrders'].length > 0) {
+        if (cloudData['erp_v7_salesOrders'] !== undefined) {
           setSalesOrders(cloudData['erp_v7_salesOrders']);
         } else if (Array.isArray(salesOrders) && salesOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_purchaseOrders']) && cloudData['erp_v7_purchaseOrders'].length > 0) {
+        if (cloudData['erp_v7_purchaseOrders'] !== undefined) {
           setPurchaseOrders(cloudData['erp_v7_purchaseOrders']);
         } else if (Array.isArray(purchaseOrders) && purchaseOrders.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_transactions']) && cloudData['erp_v7_transactions'].length > 0) {
+        if (cloudData['erp_v7_transactions'] !== undefined) {
           setTransactions(cloudData['erp_v7_transactions']);
         } else if (Array.isArray(transactions) && transactions.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_customers']) && cloudData['erp_v7_customers'].length > 0) {
+        if (cloudData['erp_v7_customers'] !== undefined) {
           setCustomers(cloudData['erp_v7_customers']);
         } else if (Array.isArray(customers) && customers.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_employees']) && cloudData['erp_v7_employees'].length > 0) {
+        if (cloudData['erp_v7_employees'] !== undefined) {
           setEmployees(cloudData['erp_v7_employees']);
         } else if (Array.isArray(employees) && employees.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_stockMovements']) && cloudData['erp_v7_stockMovements'].length > 0) {
+        if (cloudData['erp_v7_stockMovements'] !== undefined) {
           setStockMovements(cloudData['erp_v7_stockMovements']);
         } else if (Array.isArray(stockMovements) && stockMovements.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
         }
 
-        if (Array.isArray(cloudData['erp_v7_recipes']) && cloudData['erp_v7_recipes'].length > 0) {
+        if (cloudData['erp_v7_recipes'] !== undefined) {
           setRecipes(cloudData['erp_v7_recipes']);
         } else if (Array.isArray(recipes) && recipes.length > 0) {
           supabase.from('erp_state').upsert({ key: 'erp_v7_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
@@ -413,21 +414,38 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const createSalesOrder = useCallback((so: SalesOrder) => {
     setSalesOrders(prev => [so, ...prev]);
 
-    // Auto-add customer to CRM if not exists
+    // Robust CRM Sync: Update existing or add new customer
     setCustomers(prev => {
-      if (prev.some(c => c.name.toLowerCase() === so.customerName.toLowerCase())) {
-        return prev;
+      const existingIdx = prev.findIndex(c => c.name.toLowerCase().trim() === so.customerName.toLowerCase().trim());
+      
+      if (existingIdx !== -1) {
+        // Update existing customer
+        const updatedCustomers = [...prev];
+        const existing = updatedCustomers[existingIdx];
+        updatedCustomers[existingIdx] = {
+          ...existing,
+          email: so.customerEmail || existing.email,
+          phone: so.customerPhone || existing.phone,
+          address: so.customerAddress || existing.address,
+          totalOrders: (existing.totalOrders || 0) + 1,
+          totalSpent: (existing.totalSpent || 0) + so.totalAmount,
+          lastOrderDate: so.date.split(' ')[0]
+        };
+        return updatedCustomers;
+      } else {
+        // Add new customer
+        const newCustomer: Customer = {
+          id: `CUST-${Date.now()}`,
+          name: so.customerName,
+          email: so.customerEmail || '-',
+          phone: so.customerPhone || '-',
+          address: so.customerAddress || '-',
+          totalOrders: 1,
+          totalSpent: so.totalAmount,
+          lastOrderDate: so.date.split(' ')[0]
+        };
+        return [...prev, newCustomer];
       }
-      const newCustomer: Customer = {
-        id: `CUST-${Date.now()}`,
-        name: so.customerName,
-        email: '-',
-        phone: '-',
-        address: '-',
-        totalOrders: 0,
-        totalSpent: 0
-      };
-      return [...prev, newCustomer];
     });
   }, []);
 
@@ -605,6 +623,45 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
   }, []);
 
+  const clearAllData = useCallback(async () => {
+    try {
+      // 1. Reset Local State
+      setInventory([]);
+      setWorkOrders([]);
+      setSalesOrders([]);
+      setPurchaseOrders([]);
+      setTransactions([]);
+      setCustomers([]);
+      setEmployees([]);
+      setStockMovements([]);
+      setRecipes([]);
+
+      // 2. Clear LocalStorage
+      const keys = [
+        'erp_v7_inventory', 'erp_v7_workOrders', 'erp_v7_salesOrders', 
+        'erp_v7_purchaseOrders', 'erp_v7_transactions', 'erp_v7_customers', 
+        'erp_v7_employees', 'erp_v7_stockMovements', 'erp_v7_recipes'
+      ];
+      keys.forEach(k => localStorage.removeItem(k));
+
+      // 3. Clear Supabase by setting keys to empty arrays
+      const keysToClear = [
+        'erp_v7_inventory', 'erp_v7_workOrders', 'erp_v7_salesOrders', 
+        'erp_v7_purchaseOrders', 'erp_v7_transactions', 'erp_v7_customers', 
+        'erp_v7_employees', 'erp_v7_stockMovements', 'erp_v7_recipes'
+      ];
+      
+      await Promise.all(keysToClear.map(key => 
+        supabase.from('erp_state').upsert({ key, value: [] })
+      ));
+
+      console.log('Semua data berhasil dibersihkan dari lokal dan cloud.');
+    } catch (err) {
+      console.error('Gagal membersihkan data:', err);
+      alert('Gagal membersihkan data. Silakan coba lagi.');
+    }
+  }, []);
+
 
   const contextValue = useMemo(() => ({
     inventory,
@@ -645,7 +702,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     netProfit,
     totalReceivables,
     totalPayables,
-    lowStockItems
+    lowStockItems,
+    clearAllData
   }), [
     inventory, workOrders, salesOrders, purchaseOrders, transactions,
     customers, employees, stockMovements, recipes,
@@ -655,7 +713,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addCustomer, updateCustomer, addEmployee, addTransaction, addRecipe,
     updateRecipe, deleteRecipe, deleteWorkOrder, deleteCustomer, payDebt, collectPayment,
     deleteSalesOrder, updateSalesOrder,
-    totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems
+    totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems,
+    clearAllData
   ]);
 
   return (

@@ -8,6 +8,7 @@ import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { Transaction } from '../lib/types';
 import { cn } from '../lib/utils';
+import { exportToExcelFormatted } from '../lib/export';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 type FinanceTab = 'dashboard' | 'transactions' | 'receivables' | 'payables' | 'reports';
@@ -203,14 +204,21 @@ export default function Finance() {
 
   // Export helpers
   const exportCSV = () => {
-    const rows = [['ID','Tanggal','Tipe','Kategori','Keterangan','Jumlah','Referensi']];
-    filteredTransactions.forEach(t => rows.push([t.id, t.date, t.type, t.category, `"${t.description || ''}"`, t.amount.toString(), t.referenceId||'']));
-    const csv = rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `laporan_keuangan_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const dataToExport = filteredTransactions.map(t => ({
+      'ID': t.id,
+      'Tanggal': t.date,
+      'Tipe': t.type === 'Income' ? 'Masuk' : 'Keluar',
+      'Kategori': getCategoryLabel(t.category),
+      'Keterangan': t.description || '-',
+      'Jumlah': t.amount,
+      'Referensi': t.referenceId || '-'
+    }));
+    exportToExcelFormatted(
+      `laporan_keuangan_${new Date().toISOString().split('T')[0]}.xls`,
+      'LAPORAN TRANSAKSI KEUANGAN KITO NIAN',
+      dataToExport,
+      '#0f172a'
+    );
   };
 
   const exportPDF = () => {
@@ -356,7 +364,33 @@ export default function Finance() {
         <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
         <span className="text-xs text-slate-400">s/d</span>
         <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
-        {(dateFrom || dateTo) && <button onClick={()=>{setDateFrom('');setDateTo('')}} className="text-xs text-rose-500 font-bold flex items-center gap-1"><X size={12}/>Reset</button>}
+        
+        <div className="flex gap-1">
+          <button 
+            onClick={() => {
+              const today = new Date().toISOString().split('T')[0];
+              setDateFrom(today);
+              setDateTo(today);
+            }}
+            className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold hover:bg-slate-200"
+          >
+            Hari Ini
+          </button>
+          <button 
+            onClick={() => {
+              const now = new Date();
+              const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+              const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+              setDateFrom(firstDay);
+              setDateTo(lastDay);
+            }}
+            className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold hover:bg-slate-200"
+          >
+            Bulan Ini
+          </button>
+        </div>
+
+        {(dateFrom || dateTo) && <button onClick={()=>{setDateFrom('');setDateTo('')}} className="text-xs text-rose-500 font-bold flex items-center gap-1 ml-2"><X size={12}/>Reset</button>}
       </div>
 
       {/* Summary Cards */}

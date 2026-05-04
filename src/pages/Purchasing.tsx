@@ -642,17 +642,19 @@ export default function Purchasing() {
               <div className="grid grid-cols-3 gap-2">
                 <input
                   type="number"
+                  step="any"
                   placeholder="Jumlah"
                   className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
                   value={itemQuantity || ''}
-                  onChange={e => setItemQuantity(Number(e.target.value))}
+                  onChange={e => setItemQuantity(parseFloat(e.target.value) || 0)}
                 />
                 <input
                   type="number"
+                  step="any"
                   placeholder="Harga"
                   className="px-3 py-2 border border-slate-300 rounded-lg text-sm"
                   value={itemCost || ''}
-                  onChange={e => setItemCost(Number(e.target.value))}
+                  onChange={e => setItemCost(parseFloat(e.target.value) || 0)}
                 />
                 <button
                   type="button"

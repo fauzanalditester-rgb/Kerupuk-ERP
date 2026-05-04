@@ -11,28 +11,50 @@ import CRM from './pages/CRM';
 import Finance from './pages/Finance';
 import HR from './pages/HR';
 import Settings from './pages/Settings';
+import Home from './pages/Home';
 import Login from './pages/Login';
-import ForgotPassword from './pages/ForgotPassword';
-import { ERPProvider } from './context/ERPContext';
+import { ERPProvider, useERP } from './context/ERPContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { isLoading: erpLoading } = useERP();
   const location = useLocation();
 
-  if (isLoading) {
+  if (authLoading || erpLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest animate-pulse">Menghubungkan ke Cloud...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
+}
+
+function RootElement() {
+  const { user, isLoading: authLoading } = useAuth();
+  const { isLoading: erpLoading } = useERP();
+
+  if (authLoading || erpLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#1a0a00]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#d4a843]/20 border-t-[#d4a843] rounded-full animate-spin" />
+          <p className="text-[#d4a843] font-bold text-xs uppercase tracking-widest animate-pulse">Memuat Keajaiban...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return user ? <Layout /> : <Home />;
 }
 
 function App() {
@@ -41,16 +63,12 @@ function App() {
       <ERPProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/wp-admin" element={<Login />} />
+
 
             <Route
               path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
+              element={<RootElement />}
             >
               <Route index element={<Dashboard />} />
               <Route path="inventory" element={<Inventory />} />

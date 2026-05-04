@@ -37,6 +37,7 @@ export default function Sales() {
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [filterCategory, setFilterCategory] = useState('all');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // New SO State
   const [customerName, setCustomerName] = useState('');
@@ -155,8 +156,12 @@ export default function Sales() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+
+    try {
 
     let finalItemsForSO = [...soItems];
     // Auto-add current item if fields are filled but "+" was not clicked
@@ -284,6 +289,11 @@ export default function Sales() {
       setCurrentDiscount(0);
     } else if (finalItemsForSO.length === 0) {
       alert('Mohon pilih setidaknya satu produk (klik tanda + atau isi jumlah barang).');
+    }
+      setIsSubmitting(false);
+    } catch (err) {
+      console.error(err);
+      setIsSubmitting(false);
     }
   };
 
@@ -1142,7 +1152,7 @@ export default function Sales() {
                           type="button"
                           onClick={() => {
                             if (item.quantity > 1) {
-                              setSoItems(soItems.map((si, i) => i === idx ? { ...si, quantity: si.quantity - 1 } : si));
+                              setSoItems(soItems.map((si, i) => i === idx ? { ...si, quantity: Number((si.quantity - 1).toFixed(2)) } : si));
                             } else {
                               handleRemoveItem(idx);
                             }
@@ -1151,11 +1161,20 @@ export default function Sales() {
                         >
                           <Plus size={10} className="rotate-45" />
                         </button>
-                        <span className="text-xs font-black w-6 text-center">{item.quantity}</span>
+                        <input
+                          type="number"
+                          step="any"
+                          className="text-xs font-black w-10 text-center bg-transparent border-none focus:ring-0 outline-none p-0"
+                          value={item.quantity}
+                          onChange={e => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setSoItems(soItems.map((si, i) => i === idx ? { ...si, quantity: val } : si));
+                          }}
+                        />
                         <button
                           type="button"
                           onClick={() => {
-                            setSoItems(soItems.map((si, i) => i === idx ? { ...si, quantity: si.quantity + 1 } : si));
+                            setSoItems(soItems.map((si, i) => i === idx ? { ...si, quantity: Number((si.quantity + 1).toFixed(2)) } : si));
                           }}
                           className="w-6 h-6 flex items-center justify-center bg-white border border-slate-200 rounded-md text-slate-600 hover:bg-emerald-50"
                         >
@@ -1169,10 +1188,11 @@ export default function Sales() {
                           <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-slate-400">Rp</span>
                           <input
                             type="number"
+                            step="any"
                             className="w-full pl-5 pr-1 py-1 bg-slate-50 border border-slate-100 rounded text-[10px] font-bold focus:ring-1 focus:ring-emerald-500/20 outline-none"
                             value={item.price}
                             onChange={e => {
-                              const val = Number(e.target.value);
+                              const val = parseFloat(e.target.value) || 0;
                               setSoItems(soItems.map((si, i) => i === idx ? { ...si, price: val } : si));
                             }}
                           />
@@ -1181,11 +1201,12 @@ export default function Sales() {
                           <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-black text-orange-500">%</span>
                           <input
                             type="number"
+                            step="any"
                             placeholder="Disc"
                             className="w-full pl-2 pr-4 py-1 bg-slate-50 border border-slate-100 rounded text-[10px] font-bold text-orange-600 focus:ring-1 focus:ring-orange-500/20 outline-none"
                             value={item.discount || ''}
                             onChange={e => {
-                              const val = Number(e.target.value);
+                              const val = parseFloat(e.target.value) || 0;
                               setSoItems(soItems.map((si, i) => i === idx ? { ...si, discount: val } : si));
                             }}
                           />
@@ -1251,10 +1272,17 @@ export default function Sales() {
 
               <button
                 type="submit"
-                disabled={soItems.length === 0 || !customerName}
-                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
+                disabled={soItems.length === 0 || !customerName || isSubmitting}
+                className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-emerald-200 hover:bg-emerald-700 active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2"
               >
-                PROSES TRANSAKSI
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    MEMPROSES...
+                  </>
+                ) : (
+                  'PROSES TRANSAKSI'
+                )}
               </button>
             </div>
           </div>

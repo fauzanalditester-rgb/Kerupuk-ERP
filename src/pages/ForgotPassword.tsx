@@ -97,7 +97,7 @@ export default function ForgotPassword() {
 
                     <div className="mt-8 pt-6 border-t border-slate-50 text-center">
                         <Link
-                            to="/login"
+                            to="/wp-admin"
                             className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-emerald-600 font-medium transition-colors"
                         >
                             <ArrowLeft size={16} />

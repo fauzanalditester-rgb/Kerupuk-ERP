@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../lib/types';
+import { supabase } from '../lib/supabase';
 
 interface AuthContextType {
     user: User | null;
@@ -38,18 +39,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, []);
 
     const login = async (username: string, password: string): Promise<boolean> => {
-        const storedCreds = JSON.parse(localStorage.getItem('erp_creds') || '{"username":"admin","password":"admin123"}');
-        
-        if (username === storedCreds.username && password === storedCreds.password) {
-            const mockUser: User = {
-                id: '1',
-                username: storedCreds.username,
-                name: 'Admin Toko',
-                role: 'admin'
-            };
-            setUser(mockUser);
-            localStorage.setItem('erp_session', JSON.stringify(mockUser));
-            return true;
+        try {
+            const { data, error } = await supabase
+                .from('erp_state')
+                .select('value')
+                .eq('key', 'erp_auth_creds')
+                .single();
+
+            const creds = data?.value || { username: 'admin', password: 'admin123' };
+            
+            if (username === creds.username && password === creds.password) {
+                const mockUser: User = {
+                    id: '1',
+                    username: creds.username,
+                    name: 'Admin Toko',
+                    role: 'admin'
+                };
+                setUser(mockUser);
+                localStorage.setItem('erp_session', JSON.stringify(mockUser));
+                
+                // Clean up old insecure storage if exists
+                localStorage.removeItem('erp_creds');
+                return true;
+            }
+        } catch (e) {
+            console.error('Auth error:', e);
         }
         return false;
     };
@@ -59,19 +73,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('erp_session');
     };
 
-    const updateCredentials = async (newUsername: string, newPassword: string): Promise<boolean> => {
+    const updateCredentials = async (newUsername: string, newPassword?: string): Promise<boolean> => {
         try {
-            const creds = { username: newUsername, password: newPassword };
-            localStorage.setItem('erp_creds', JSON.stringify(creds));
+            // Fetch current creds to keep password if newPassword not provided
+            const { data } = await supabase
+                .from('erp_state')
+                .select('value')
+                .eq('key', 'erp_auth_creds')
+                .single();
+
+            const currentCreds = data?.value || { username: 'admin', password: 'admin123' };
+            const updatedCreds = { 
+                username: newUsername, 
+                password: newPassword || currentCreds.password 
+            };
             
-            // Update current session if logged in
+            // Save to Cloud
+            const { error } = await supabase
+                .from('erp_state')
+                .upsert({ key: 'erp_auth_creds', value: updatedCreds });
+
+            if (error) throw error;
+            
+            // Update current session
             if (user) {
                 const updatedUser = { ...user, username: newUsername };
                 setUser(updatedUser);
                 localStorage.setItem('erp_session', JSON.stringify(updatedUser));
             }
+            
+            localStorage.removeItem('erp_creds');
             return true;
         } catch (e) {
+            console.error('Update credentials failed:', e);
             return false;
         }
     };

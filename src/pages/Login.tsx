@@ -22,7 +22,7 @@ export default function Login() {
             if (success) {
                 navigate('/');
             } else {
-                setError('Username atau password salah. Coba: admin/admin123');
+                setError('Username atau password salah. Silakan coba lagi.');
             }
         } catch (err) {
             setError('Terjadi kesalahan saat masuk.');
@@ -98,7 +98,6 @@ export default function Login() {
                                 <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" />
                                 <span className="text-slate-600 group-hover:text-slate-900 transition-colors">Ingat saya</span>
                             </label>
-                            <Link to="/forgot-password" className="text-emerald-600 font-medium hover:text-emerald-700">Lupa kata sandi?</Link>
                         </div>
 
                         <button
@@ -118,9 +117,7 @@ export default function Login() {
                     </form>
 
                     <div className="mt-8 pt-6 border-t border-slate-50 text-center">
-                        <p className="text-sm text-slate-500">
-                            Belum punya akun? <a href="#" className="text-emerald-600 font-bold">Hubungi Admin</a>
-                        </p>
+                        {/* Hubungi Admin Removed */}
                     </div>
                 </div>
 

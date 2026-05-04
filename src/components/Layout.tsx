@@ -18,7 +18,6 @@ import {
   LogOut,
   CookingPot,
   Settings as SettingsIcon,
-  RotateCcw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -152,36 +151,7 @@ export default function Layout() {
               </div>
             </div>
           </div>
-          <button
-            onClick={async () => {
-              if (confirm('PERHATIAN: Ini akan menghapus SELURUH data di semua modul (Lokal & Cloud). Aplikasi akan kembali ke kondisi kosong. Lanjutkan?')) {
-                try {
-                  // 1. Clear Cloud Data (Supabase)
-                  const { error } = await supabase.from('erp_state').delete().neq('key', 'none');
-                  if (error) throw error;
 
-                  // 2. Clear Local Data
-                  localStorage.clear();
-                  sessionStorage.clear();
-
-                  // 3. Success Feedback & Reload
-                  alert('Sistem berhasil dibersihkan. Aplikasi akan dimuat ulang.');
-                  window.location.reload();
-                } catch (err) {
-                  console.error('Gagal membersihkan sistem:', err);
-                  alert('Gagal membersihkan data cloud. Pastikan koneksi internet tersedia.');
-                }
-              }
-            }}
-            className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-emerald-500 hover:text-white rounded-xl transition-all duration-200 group active:scale-[0.98]",
-              !isSidebarOpen && "lg:justify-center lg:px-0"
-            )}
-            title="Bersihkan Cache & Data"
-          >
-            <RotateCcw size={20} className="group-hover:rotate-180 transition-transform duration-500" />
-            <span className={cn("text-[10px] font-bold uppercase tracking-[0.1em] transition-all", !isSidebarOpen && "lg:hidden")}>Bersihkan Cache</span>
-          </button>
           <button
             onClick={logout}
             className={cn(

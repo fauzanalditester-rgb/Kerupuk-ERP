@@ -990,21 +990,23 @@ export default function Inventory() {
               </label>
               <input
                 type="number"
+                step="any"
                 required
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                 value={newItem.price || ''}
-                onChange={e => setNewItem({ ...newItem, price: Number(e.target.value) })}
+                onChange={e => setNewItem({ ...newItem, price: parseFloat(e.target.value) || 0 })}
               />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">Stok Awal</label>
               <input
                 type="number"
+                step="any"
                 required
                 className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
                 placeholder="Jumlah stok saat ini"
                 value={newItem.stock || ''}
-                onChange={e => setNewItem({ ...newItem, stock: Number(e.target.value) })}
+                onChange={e => setNewItem({ ...newItem, stock: parseFloat(e.target.value) || 0 })}
               />
             </div>
           </div>
@@ -1012,10 +1014,11 @@ export default function Inventory() {
             <label className="block text-sm font-medium text-slate-700 mb-1">Batas Stok Rendah</label>
             <input
               type="number"
+              step="any"
               required
               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm"
               value={newItem.minStock || ''}
-              onChange={e => setNewItem({ ...newItem, minStock: Number(e.target.value) })}
+              onChange={e => setNewItem({ ...newItem, minStock: parseFloat(e.target.value) || 0 })}
             />
           </div>
           <div className="pt-2 flex gap-3">

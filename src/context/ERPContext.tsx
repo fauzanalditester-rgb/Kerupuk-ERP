@@ -21,6 +21,10 @@ interface ERPContextType {
   employees: Employee[];
   stockMovements: StockMovement[];
   recipes: Recipe[];
+  incomeCategories: string[];
+  expenseCategories: string[];
+  setIncomeCategories: React.Dispatch<React.SetStateAction<string[]>>;
+  setExpenseCategories: React.Dispatch<React.SetStateAction<string[]>>;
 
   // Actions
   addInventoryItem: (item: InventoryItem) => void;
@@ -56,6 +60,7 @@ interface ERPContextType {
   totalPayables: number;
   lowStockItems: InventoryItem[];
   clearAllData: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const ERPContext = createContext<ERPContextType | undefined>(undefined);
@@ -69,85 +74,126 @@ export const useERP = () => {
 };
 
 // Initial Data for Production Start
-const initialInventory: InventoryItem[] = [];
-
-const initialPurchaseOrders: PurchaseOrder[] = [];
-
-const initialWorkOrders: WorkOrder[] = [];
-
-const initialSalesOrders: SalesOrder[] = [];
-
-const initialTransactions: Transaction[] = [];
-
-const initialStockMovements: StockMovement[] = [];
-
-const initialCustomers: Customer[] = [];
-
-const initialEmployees: Employee[] = [];
-
 const initialRecipes: Recipe[] = [];
 
-// Helper to load from localStorage
-const loadState = <T,>(key: string, fallback: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : fallback;
-  } catch (e) {
-    console.error(`Failed to load ${key} from localStorage`, e);
-    return fallback;
-  }
-};
-
 export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [inventory, setInventory] = useState<InventoryItem[]>(() => loadState('erp_v7_inventory', initialInventory));
-  const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => loadState('erp_v7_workOrders', initialWorkOrders));
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => loadState('erp_v7_salesOrders', initialSalesOrders));
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => loadState('erp_v7_purchaseOrders', initialPurchaseOrders));
-  const [transactions, setTransactions] = useState<Transaction[]>(() => loadState('erp_v7_transactions', initialTransactions));
-  const [customers, setCustomers] = useState<Customer[]>(() => loadState('erp_v7_customers', initialCustomers));
-  const [employees, setEmployees] = useState<Employee[]>(() => loadState('erp_v7_employees', initialEmployees));
-  const [stockMovements, setStockMovements] = useState<StockMovement[]>(() => loadState('erp_v7_stockMovements', initialStockMovements));
-  const [recipes, setRecipes] = useState<Recipe[]>(() => loadState('erp_v7_recipes', initialRecipes));
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [incomeCategories, setIncomeCategories] = useState<string[]>(["Sales", "Investment", "Other"]);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>(["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Persist to localStorage and Supabase whenever state changes
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_inventory', JSON.stringify(inventory)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_inventory', value: inventory }).then(({error}) => { if (error) console.error(error) });
-  }, [inventory]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_workOrders', JSON.stringify(workOrders)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_workOrders', value: workOrders }).then(({error}) => { if (error) console.error(error) });
-  }, [workOrders]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_salesOrders', JSON.stringify(salesOrders)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_salesOrders', value: salesOrders }).then(({error}) => { if (error) console.error(error) });
-  }, [salesOrders]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_purchaseOrders', JSON.stringify(purchaseOrders)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_purchaseOrders', value: purchaseOrders }).then(({error}) => { if (error) console.error(error) });
-  }, [purchaseOrders]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_transactions', JSON.stringify(transactions)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_transactions', value: transactions }).then(({error}) => { if (error) console.error(error) });
-  }, [transactions]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_customers', JSON.stringify(customers)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_customers', value: customers }).then(({error}) => { if (error) console.error(error) });
-  }, [customers]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_employees', JSON.stringify(employees)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_employees', value: employees }).then(({error}) => { if (error) console.error(error) });
-  }, [employees]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_stockMovements', JSON.stringify(stockMovements)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_stockMovements', value: stockMovements }).then(({error}) => { if (error) console.error(error) });
-  }, [stockMovements]);
-  useEffect(() => { 
-    localStorage.setItem('erp_v7_recipes', JSON.stringify(recipes)); 
-    supabase.from('erp_state').upsert({ key: 'erp_v7_recipes', value: recipes }).then(({error}) => { if (error) console.error(error) });
-  }, [recipes]);
+  const isRemoteUpdate = React.useRef<Record<string, boolean>>({});
 
-  // Load from Supabase on mount
+  // 1. Persist to Supabase whenever state changes (Cloud Only)
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_inventory']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_inventory', value: inventory }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_inventory'] = false;
+  }, [inventory, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_workOrders']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_workOrders', value: workOrders }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_workOrders'] = false;
+  }, [workOrders, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_salesOrders']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_salesOrders', value: salesOrders }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_salesOrders'] = false;
+  }, [salesOrders, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_purchaseOrders']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_purchaseOrders', value: purchaseOrders }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_purchaseOrders'] = false;
+  }, [purchaseOrders, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_transactions']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_transactions', value: transactions }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_transactions'] = false;
+  }, [transactions, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_customers']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_customers', value: customers }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_customers'] = false;
+  }, [customers, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_employees']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_employees', value: employees }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_employees'] = false;
+  }, [employees, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_stockMovements']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_stockMovements', value: stockMovements }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_stockMovements'] = false;
+  }, [stockMovements, isLoading]);
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_recipes']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_recipes', value: recipes }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_recipes'] = false;
+  }, [recipes, isLoading]);
+
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_income_cats']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_income_cats', value: incomeCategories }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_income_cats'] = false;
+  }, [incomeCategories, isLoading]);
+
+  useEffect(() => { 
+    if (!isLoading && !isRemoteUpdate.current['erp_v7_expense_cats']) {
+      supabase.from('erp_state').upsert({ key: 'erp_v7_expense_cats', value: expenseCategories }).then(({error}) => { if (error) console.error(error) });
+    }
+    isRemoteUpdate.current['erp_v7_expense_cats'] = false;
+  }, [expenseCategories, isLoading]);
+
+  // 2. Realtime Subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('erp_realtime_sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'erp_state' }, (payload) => {
+        const { key, value } = payload.new as { key: string, value: any };
+        if (!key || !value) return;
+
+        isRemoteUpdate.current[key] = true;
+        
+        switch (key) {
+          case 'erp_v7_inventory': setInventory(value); break;
+          case 'erp_v7_workOrders': setWorkOrders(value); break;
+          case 'erp_v7_salesOrders': setSalesOrders(value); break;
+          case 'erp_v7_purchaseOrders': setPurchaseOrders(value); break;
+          case 'erp_v7_transactions': setTransactions(value); break;
+          case 'erp_v7_customers': setCustomers(value); break;
+          case 'erp_v7_employees': setEmployees(value); break;
+          case 'erp_v7_stockMovements': setStockMovements(value); break;
+          case 'erp_v7_recipes': setRecipes(value); break;
+          case 'erp_v7_income_cats': setIncomeCategories(value); break;
+          case 'erp_v7_expense_cats': setExpenseCategories(value); break;
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // 3. Load from Supabase on mount
   useEffect(() => {
     const fetchFromSupabase = async () => {
       try {
@@ -162,66 +208,56 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
 
-        // Per-key Sync Logic:
-        // Jika Cloud memiliki data (> 0), tarik datanya untuk menggantikan Local.
-        // Jika Cloud kosong, tapi Local punya data (> 0), jangan hapus data Local! Unggah ke Cloud.
-
-        if (cloudData['erp_v7_inventory'] !== undefined) {
+        // Set state from Cloud only
+        if (cloudData['erp_v7_inventory']) {
+          isRemoteUpdate.current['erp_v7_inventory'] = true;
           setInventory(cloudData['erp_v7_inventory']);
-        } else if (Array.isArray(inventory) && inventory.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_inventory', value: inventory }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_workOrders'] !== undefined) {
+        if (cloudData['erp_v7_workOrders']) {
+          isRemoteUpdate.current['erp_v7_workOrders'] = true;
           setWorkOrders(cloudData['erp_v7_workOrders']);
-        } else if (Array.isArray(workOrders) && workOrders.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_workOrders', value: workOrders }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_salesOrders'] !== undefined) {
+        if (cloudData['erp_v7_salesOrders']) {
+          isRemoteUpdate.current['erp_v7_salesOrders'] = true;
           setSalesOrders(cloudData['erp_v7_salesOrders']);
-        } else if (Array.isArray(salesOrders) && salesOrders.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_salesOrders', value: salesOrders }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_purchaseOrders'] !== undefined) {
+        if (cloudData['erp_v7_purchaseOrders']) {
+          isRemoteUpdate.current['erp_v7_purchaseOrders'] = true;
           setPurchaseOrders(cloudData['erp_v7_purchaseOrders']);
-        } else if (Array.isArray(purchaseOrders) && purchaseOrders.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_purchaseOrders', value: purchaseOrders }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_transactions'] !== undefined) {
+        if (cloudData['erp_v7_transactions']) {
+          isRemoteUpdate.current['erp_v7_transactions'] = true;
           setTransactions(cloudData['erp_v7_transactions']);
-        } else if (Array.isArray(transactions) && transactions.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_transactions', value: transactions }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_customers'] !== undefined) {
+        if (cloudData['erp_v7_customers']) {
+          isRemoteUpdate.current['erp_v7_customers'] = true;
           setCustomers(cloudData['erp_v7_customers']);
-        } else if (Array.isArray(customers) && customers.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_customers', value: customers }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_employees'] !== undefined) {
+        if (cloudData['erp_v7_employees']) {
+          isRemoteUpdate.current['erp_v7_employees'] = true;
           setEmployees(cloudData['erp_v7_employees']);
-        } else if (Array.isArray(employees) && employees.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_employees', value: employees }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_stockMovements'] !== undefined) {
+        if (cloudData['erp_v7_stockMovements']) {
+          isRemoteUpdate.current['erp_v7_stockMovements'] = true;
           setStockMovements(cloudData['erp_v7_stockMovements']);
-        } else if (Array.isArray(stockMovements) && stockMovements.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_stockMovements', value: stockMovements }).then(({error})=> {if(error)console.error(error)});
         }
-
-        if (cloudData['erp_v7_recipes'] !== undefined) {
+        if (cloudData['erp_v7_recipes']) {
+          isRemoteUpdate.current['erp_v7_recipes'] = true;
           setRecipes(cloudData['erp_v7_recipes']);
-        } else if (Array.isArray(recipes) && recipes.length > 0) {
-          supabase.from('erp_state').upsert({ key: 'erp_v7_recipes', value: recipes }).then(({error})=> {if(error)console.error(error)});
+        }
+        if (cloudData['erp_v7_income_cats']) {
+          isRemoteUpdate.current['erp_v7_income_cats'] = true;
+          setIncomeCategories(cloudData['erp_v7_income_cats']);
+        }
+        if (cloudData['erp_v7_expense_cats']) {
+          isRemoteUpdate.current['erp_v7_expense_cats'] = true;
+          setExpenseCategories(cloudData['erp_v7_expense_cats']);
         }
 
       } catch (err) {
         console.error('Failed to load from Supabase:', err);
+      } finally {
+        setIsLoading(false);
       }
     };
     fetchFromSupabase();
@@ -517,19 +553,35 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [purchaseOrders, updateInventoryStock]);
 
   const addCustomer = useCallback((customer: Customer) => {
-    setCustomers(prev => [...prev, customer]);
+    setCustomers(prev => {
+      const exists = prev.find(c => c.name.toLowerCase().trim() === customer.name.toLowerCase().trim());
+      if (exists) return prev;
+      return [...prev, customer];
+    });
   }, []);
 
   const addEmployee = useCallback((employee: Employee) => {
-    setEmployees(prev => [...prev, employee]);
+    setEmployees(prev => {
+      const exists = prev.find(e => e.name.toLowerCase().trim() === employee.name.toLowerCase().trim());
+      if (exists) return prev;
+      return [...prev, employee];
+    });
   }, []);
 
   const addTransaction = useCallback((transaction: Transaction) => {
-    setTransactions(prev => [transaction, ...prev]);
+    setTransactions(prev => {
+      const exists = prev.find(t => t.id === transaction.id);
+      if (exists) return prev;
+      return [transaction, ...prev];
+    });
   }, []);
 
   const addRecipe = useCallback((recipe: Recipe) => {
-    setRecipes(prev => [...prev, recipe]);
+    setRecipes(prev => {
+      const exists = prev.find(r => r.id === recipe.id || r.name.toLowerCase().trim() === recipe.name.toLowerCase().trim());
+      if (exists) return prev;
+      return [...prev, recipe];
+    });
   }, []);
 
   const updateRecipe = useCallback((id: string, updatedRecipe: Recipe) => {
@@ -673,6 +725,10 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     employees,
     stockMovements,
     recipes,
+    incomeCategories,
+    expenseCategories,
+    setIncomeCategories,
+    setExpenseCategories,
     addInventoryItem,
     updateInventoryItem,
     deleteInventoryItem,
@@ -703,7 +759,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     totalReceivables,
     totalPayables,
     lowStockItems,
-    clearAllData
+    clearAllData,
+    isLoading
   }), [
     inventory, workOrders, salesOrders, purchaseOrders, transactions,
     customers, employees, stockMovements, recipes,
@@ -714,7 +771,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateRecipe, deleteRecipe, deleteWorkOrder, deleteCustomer, payDebt, collectPayment,
     deleteSalesOrder, updateSalesOrder,
     totalRevenue, totalExpenses, netProfit, totalReceivables, totalPayables, lowStockItems,
-    clearAllData
+    clearAllData, isLoading
   ]);
 
   return (

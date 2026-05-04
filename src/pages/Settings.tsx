@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, Save, CheckCircle2, AlertCircle, Shield, Trash2, RefreshCcw, Database, Download, FileSpreadsheet } from 'lucide-react';
+import { User, Lock, Save, CheckCircle2, AlertCircle, Shield, Database, Download, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useERP } from '../context/ERPContext';
 import { motion } from 'framer-motion';
@@ -8,7 +8,6 @@ import { exportToExcelFormatted } from '../lib/export';
 export default function Settings() {
     const { user, updateCredentials } = useAuth();
     const { 
-        clearAllData, 
         inventory, 
         salesOrders, 
         purchaseOrders, 
@@ -23,7 +22,7 @@ export default function Settings() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
     const [loading, setLoading] = useState(false);
-    const [clearing, setClearing] = useState(false);
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -35,11 +34,11 @@ export default function Settings() {
         }
 
         setLoading(true);
-        const finalPassword = password || JSON.parse(localStorage.getItem('erp_creds') || '{"password":"admin123"}').password;
-        const success = await updateCredentials(username, finalPassword);
+        // If password is empty, we send null/empty to tell AuthContext to keep existing password
+        const success = await updateCredentials(username, password || undefined);
 
         if (success) {
-            setStatus({ type: 'success', message: 'Username dan kata sandi berhasil diperbarui!' });
+            setStatus({ type: 'success', message: 'Pengaturan berhasil diperbarui!' });
             setPassword('');
             setConfirmPassword('');
         } else {
@@ -48,15 +47,7 @@ export default function Settings() {
         setLoading(false);
     };
 
-    const handleClearData = async () => {
-        if (window.confirm('PERINGATAN: Ini akan menghapus SELURUH data ERP Anda (Stok, Penjualan, Keuangan, dll) secara permanen baik di perangkat ini maupun di cloud. Tindakan ini tidak dapat dibatalkan. Lanjutkan?')) {
-            setClearing(true);
-            await clearAllData();
-            setClearing(false);
-            alert('Semua data telah dibersihkan. Halaman akan dimuat ulang.');
-            window.location.reload();
-        }
-    };
+
 
     const handleDownloadBackup = () => {
         const fullData = {
@@ -247,63 +238,7 @@ export default function Settings() {
                 </form>
             </motion.div>
 
-            {/* Maintenance Section */}
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
-            >
-                <div className="p-6 border-b border-slate-100 flex items-center gap-3 bg-rose-50/50">
-                    <div className="p-2 bg-rose-100 text-rose-600 rounded-lg">
-                        <RefreshCcw size={20} />
-                    </div>
-                    <h3 className="text-sm font-black text-slate-800 uppercase tracking-wider">Pemeliharaan Data</h3>
-                </div>
 
-                <div className="p-6 space-y-6">
-                    <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 flex gap-4">
-                        <div className="shrink-0 w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
-                            <AlertTriangle className="text-rose-500" size={20} />
-                        </div>
-                        <div>
-                            <h4 className="text-sm font-black text-rose-900 uppercase">Zona Bahaya: Reset Database</h4>
-                            <p className="text-xs text-rose-700 mt-1 leading-relaxed">
-                                Fitur ini akan menghapus <strong>SELURUH</strong> data operasional Anda secara permanen. Gunakan hanya jika Anda ingin memulai sistem dari nol (Hard Reset).
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between items-center p-4 bg-slate-50 rounded-xl border border-slate-200">
-                        <div>
-                            <p className="text-sm font-bold text-slate-800">Bersihkan Semua Cache & Data Cloud</p>
-                            <p className="text-[10px] text-slate-500 font-medium">Sinkronisasi akan dihentikan dan data di Supabase akan dihapus.</p>
-                        </div>
-                        <button 
-                            onClick={handleClearData}
-                            disabled={clearing}
-                            className="px-4 py-2 bg-rose-600 text-white rounded-lg text-xs font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-md shadow-rose-200 flex items-center gap-2 disabled:opacity-50"
-                        >
-                            <Trash2 size={14} />
-                            {clearing ? 'Membersihkan...' : 'Hapus Data'}
-                        </button>
-                    </div>
-                </div>
-            </motion.div>
-
-            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-6">
-                <div className="flex gap-4">
-                    <div className="p-2 bg-white rounded-lg shadow-sm h-fit">
-                        <AlertCircle className="text-amber-600" size={24} />
-                    </div>
-                    <div>
-                        <h4 className="text-sm font-black text-amber-900 uppercase">Sinkronisasi Cloud</h4>
-                        <p className="text-xs text-amber-700 mt-1 leading-relaxed font-medium">
-                            Sistem ini menggunakan Supabase untuk sinkronisasi antar perangkat. Jika Anda mengalami masalah "cache nyangkut", pastikan Anda menggunakan tombol <strong>Hapus Data</strong> di atas untuk memastikan cloud juga bersih.
-                        </p>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }

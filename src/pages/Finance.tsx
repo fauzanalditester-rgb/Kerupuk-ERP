@@ -28,7 +28,8 @@ export default function Finance() {
   const {
     transactions, addTransaction, totalRevenue, totalExpenses, netProfit,
     salesOrders, purchaseOrders, totalReceivables, totalPayables,
-    collectPayment, payDebt, inventory, employees
+    collectPayment, payDebt, inventory, employees,
+    incomeCategories, expenseCategories, setIncomeCategories, setExpenseCategories
   } = useERP();
 
   const [activeTab, setActiveTab] = useState<FinanceTab>('dashboard');
@@ -39,7 +40,7 @@ export default function Finance() {
   const [filterType, setFilterType] = useState<'all' | 'Income' | 'Expense'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-
+  
   // New Transaction State
   const [type, setType] = useState<'Income' | 'Expense'>('Expense');
   const [category, setCategory] = useState('');
@@ -49,20 +50,6 @@ export default function Finance() {
   const [description, setDescription] = useState('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   
-  const [incomeCategories, setIncomeCategories] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('erp_income_cats') || '["Sales", "Investment", "Other"]');
-    } catch (e) {
-      return ["Sales", "Investment", "Other"];
-    }
-  });
-  const [expenseCategories, setExpenseCategories] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('erp_expense_cats') || '["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"]');
-    } catch (e) {
-      return ["Raw Materials", "Salaries", "Utilities", "Maintenance", "Rent", "Other"];
-    }
-  });
   const [isNewCategory, setIsNewCategory] = useState(false);
   const [newCatName, setNewCatName] = useState('');
 
@@ -790,17 +777,14 @@ export default function Finance() {
                     type="button" 
                     onClick={() => {
                       if (newCatName.trim()) {
-                        const updated = type === 'Income' ? [...incomeCategories, newCatName.trim()] : [...expenseCategories, newCatName.trim()];
                         if (type === 'Income') {
-                          setIncomeCategories(updated);
-                          localStorage.setItem('erp_income_cats', JSON.stringify(updated));
+                          setIncomeCategories(prev => [...prev, newCatName.trim()]);
                         } else {
-                          setExpenseCategories(updated);
-                          localStorage.setItem('erp_expense_cats', JSON.stringify(updated));
+                          setExpenseCategories(prev => [...prev, newCatName.trim()]);
                         }
                         setCategory(newCatName.trim());
-                        setNewCatName('');
                         setIsNewCategory(false);
+                        setNewCatName('');
                       }
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold"

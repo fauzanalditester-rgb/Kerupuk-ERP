@@ -21,15 +21,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isLoading: erpLoading } = useERP();
   const location = useLocation();
 
-  if (authLoading || erpLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
-          <p className="text-slate-500 font-bold text-xs uppercase tracking-widest animate-pulse">Menghubungkan ke Cloud...</p>
-        </div>
-      </div>
-    );
+  if (!user && !authLoading && !erpLoading) {
+    return <Navigate to="/" replace />;
   }
 
   if (!user) {
@@ -43,16 +36,7 @@ function RootElement() {
   const { user, isLoading: authLoading } = useAuth();
   const { isLoading: erpLoading } = useERP();
 
-  if (authLoading || erpLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#1a0a00]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#d4a843]/20 border-t-[#d4a843] rounded-full animate-spin" />
-          <p className="text-[#d4a843] font-bold text-xs uppercase tracking-widest animate-pulse">Memuat Keajaiban...</p>
-        </div>
-      </div>
-    );
-  }
+  // Loading states removed as per user request
 
   return user ? <Layout /> : <Home />;
 }

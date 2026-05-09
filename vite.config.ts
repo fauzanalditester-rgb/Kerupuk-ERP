@@ -19,20 +19,17 @@ export default defineConfig(({mode}) => {
     server: {
       proxy: {
         '/auth/v1': {
-          target: env.VITE_SUPABASE_URL + '/auth/v1',
+          target: env.VITE_SUPABASE_URL,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/auth\/v1/, ''),
         },
         '/rest/v1': {
-          target: env.VITE_SUPABASE_URL + '/rest/v1',
+          target: env.VITE_SUPABASE_URL,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/rest\/v1/, ''),
         },
         '/realtime/v1': {
-          target: env.VITE_SUPABASE_URL + '/realtime/v1',
+          target: env.VITE_SUPABASE_URL,
           changeOrigin: true,
           ws: true,
-          rewrite: (path) => path.replace(/^\/realtime\/v1/, ''),
         },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

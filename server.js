@@ -16,24 +16,21 @@ console.log(`Starting server with Supabase target: ${SUPABASE_TARGET}`);
 
 // 1. Proxy untuk Supabase Auth
 app.use('/auth/v1', createProxyMiddleware({
-  target: SUPABASE_TARGET + '/auth/v1',
+  target: SUPABASE_TARGET,
   changeOrigin: true,
-  pathRewrite: { '^/auth/v1': '' },
 }));
 
 // 2. Proxy untuk Supabase REST (Database)
 app.use('/rest/v1', createProxyMiddleware({
-  target: SUPABASE_TARGET + '/rest/v1',
+  target: SUPABASE_TARGET,
   changeOrigin: true,
-  pathRewrite: { '^/rest/v1': '' },
 }));
 
 // 3. Proxy untuk Supabase Realtime (Websocket)
 app.use('/realtime/v1', createProxyMiddleware({
-  target: SUPABASE_TARGET + '/realtime/v1',
+  target: SUPABASE_TARGET,
   changeOrigin: true,
   ws: true,
-  pathRewrite: { '^/realtime/v1': '' },
 }));
 
 // 4. Serve static files from 'dist'

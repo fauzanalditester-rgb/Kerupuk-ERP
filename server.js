@@ -1,6 +1,7 @@
 
 import express from 'express';
 import path from 'path';
+import cors from 'cors';
 import { fileURLToPath } from 'url';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 
@@ -8,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use(cors());
 const PORT = process.env.PORT || 3000;
 
 const SUPABASE_TARGET = process.env.REMOTE_SUPABASE_URL || 'http://72.60.195.163:9000';

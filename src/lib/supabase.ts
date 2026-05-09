@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-// Use relative path for proxying through our own server to bypass Mixed Content issues
-const supabaseUrl = '/supabase-api';
+// Create a full URL using the current origin to satisfy Supabase SDK validation
+// while still proxying through our server to bypass Mixed Content issues.
+const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+const supabaseUrl = currentOrigin + '/supabase-api';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Safeguard against missing environment variables

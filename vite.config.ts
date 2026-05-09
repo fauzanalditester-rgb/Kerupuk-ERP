@@ -17,10 +17,10 @@ export default defineConfig(({mode}) => {
     },
     server: {
       proxy: {
-        '/supabase': {
+        '/supabase-api': {
           target: env.REMOTE_SUPABASE_URL,
           changeOrigin: true,
-          rewrite: (path) => path.replace(/^\/supabase/, ''),
+          rewrite: (path) => path.replace(/^\/supabase-api/, ''),
         },
       },
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

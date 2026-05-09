@@ -18,7 +18,7 @@ export default defineConfig(({mode}) => {
     server: {
       proxy: {
         '/supabase-api': {
-          target: env.REMOTE_SUPABASE_URL,
+          target: env.VITE_SUPABASE_URL,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/supabase-api/, ''),
         },

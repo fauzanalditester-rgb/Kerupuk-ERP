@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 
 export default function Login() {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const success = await login(username, password);
+            const success = await login(email, password);
             if (success) {
                 navigate('/');
             } else {
@@ -60,18 +60,18 @@ export default function Login() {
                         )}
 
                         <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2">Username</label>
+                            <label className="block text-sm font-semibold text-slate-700 mb-2">Alamat Email</label>
                             <div className="relative group">
                                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-600 transition-colors">
                                     <User size={18} />
                                 </div>
                                 <input
-                                    type="text"
+                                    type="email"
                                     required
                                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
-                                    placeholder="admin"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
+                                    placeholder="admin@example.com"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
                                 />
                             </div>
                         </div>

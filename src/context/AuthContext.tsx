@@ -25,84 +25,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        try {
-            const storedUser = localStorage.getItem('erp_session');
-            if (storedUser) {
-                setUser(JSON.parse(storedUser));
+        // Check active sessions and sets the user
+        const initAuth = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) {
+                setUser({
+                    id: session.user.id,
+                    username: session.user.email?.split('@')[0] || 'user',
+                    name: session.user.user_metadata?.name || 'User',
+                    role: session.user.user_metadata?.role || 'admin'
+                });
             }
-        } catch (e) {
-            console.error('Failed to parse session:', e);
-            localStorage.removeItem('erp_session');
-        } finally {
             setIsLoading(false);
-        }
+        };
+
+        initAuth();
+
+        // Listen for changes on auth state (logged in, signed out, etc.)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                setUser({
+                    id: session.user.id,
+                    username: session.user.email?.split('@')[0] || 'user',
+                    name: session.user.user_metadata?.name || 'User',
+                    role: session.user.user_metadata?.role || 'admin'
+                });
+            } else {
+                setUser(null);
+            }
+            setIsLoading(false);
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    const login = async (username: string, password: string): Promise<boolean> => {
+    const login = async (email: string, password: string): Promise<boolean> => {
         try {
-            const { data, error } = await supabase
-                .from('erp_state')
-                .select('value')
-                .eq('key', 'erp_auth_creds')
-                .single();
-
-            const creds = data?.value || { username: 'admin', password: 'admin123' };
-            
-            if (username === creds.username && password === creds.password) {
-                const mockUser: User = {
-                    id: '1',
-                    username: creds.username,
-                    name: 'Admin Toko',
-                    role: 'admin'
-                };
-                setUser(mockUser);
-                localStorage.setItem('erp_session', JSON.stringify(mockUser));
-                
-                // Clean up old insecure storage if exists
-                localStorage.removeItem('erp_creds');
-                return true;
-            }
-        } catch (e) {
-            console.error('Auth error:', e);
-        }
-        return false;
-    };
-
-    const logout = () => {
-        setUser(null);
-        localStorage.removeItem('erp_session');
-    };
-
-    const updateCredentials = async (newUsername: string, newPassword?: string): Promise<boolean> => {
-        try {
-            // Fetch current creds to keep password if newPassword not provided
-            const { data } = await supabase
-                .from('erp_state')
-                .select('value')
-                .eq('key', 'erp_auth_creds')
-                .single();
-
-            const currentCreds = data?.value || { username: 'admin', password: 'admin123' };
-            const updatedCreds = { 
-                username: newUsername, 
-                password: newPassword || currentCreds.password 
-            };
-            
-            // Save to Cloud
-            const { error } = await supabase
-                .from('erp_state')
-                .upsert({ key: 'erp_auth_creds', value: updatedCreds });
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
 
             if (error) throw error;
+            return true;
+        } catch (e) {
+            console.error('Auth error:', e);
+            return false;
+        }
+    };
+
+    const logout = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+    };
+
+    const updateCredentials = async (newEmail: string, newPassword?: string): Promise<boolean> => {
+        try {
+            const updates: any = { email: newEmail };
+            if (newPassword) updates.password = newPassword;
             
-            // Update current session
-            if (user) {
-                const updatedUser = { ...user, username: newUsername };
-                setUser(updatedUser);
-                localStorage.setItem('erp_session', JSON.stringify(updatedUser));
-            }
-            
-            localStorage.removeItem('erp_creds');
+            const { error } = await supabase.auth.updateUser(updates);
+            if (error) throw error;
             return true;
         } catch (e) {
             console.error('Update credentials failed:', e);

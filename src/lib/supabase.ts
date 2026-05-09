@@ -1,10 +1,10 @@
+
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-// Create a full URL using the current origin to satisfy Supabase SDK validation
-// while still proxying through our server to bypass Mixed Content issues.
-const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-const supabaseUrl = currentOrigin + '/supabase-api';
+// Use our own domain as the base URL. The SDK will append /auth/v1 or /rest/v1
+// which will be caught and proxied by our server.
+const supabaseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Safeguard against missing environment variables

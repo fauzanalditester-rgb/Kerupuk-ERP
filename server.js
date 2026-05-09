@@ -14,29 +14,32 @@ const SUPABASE_TARGET = process.env.REMOTE_SUPABASE_URL || 'http://72.60.195.163
 
 console.log(`Starting server with Supabase target: ${SUPABASE_TARGET}`);
 
-// 1. Proxy for Supabase API (HTTP)
-app.use('/supabase-api', createProxyMiddleware({
-  target: SUPABASE_TARGET,
+// 1. Proxy untuk Supabase Auth
+app.use('/auth/v1', createProxyMiddleware({
+  target: SUPABASE_TARGET + '/auth/v1',
   changeOrigin: true,
-  pathRewrite: {
-    '^/supabase-api': '',
-  },
+  pathRewrite: { '^/auth/v1': '' },
 }));
 
-// 2. Proxy for Supabase Realtime (Websocket)
-app.use('/supabase-ws', createProxyMiddleware({
-  target: SUPABASE_TARGET,
+// 2. Proxy untuk Supabase REST (Database)
+app.use('/rest/v1', createProxyMiddleware({
+  target: SUPABASE_TARGET + '/rest/v1',
+  changeOrigin: true,
+  pathRewrite: { '^/rest/v1': '' },
+}));
+
+// 3. Proxy untuk Supabase Realtime (Websocket)
+app.use('/realtime/v1', createProxyMiddleware({
+  target: SUPABASE_TARGET + '/realtime/v1',
   changeOrigin: true,
   ws: true,
-  pathRewrite: {
-    '^/supabase-ws': '',
-  },
+  pathRewrite: { '^/realtime/v1': '' },
 }));
 
-// 3. Serve static files from 'dist'
+// 4. Serve static files from 'dist'
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// 4. Fallback to index.html for SPA routing
+// 5. Fallback to index.html for SPA routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });

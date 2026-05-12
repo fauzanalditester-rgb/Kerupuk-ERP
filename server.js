@@ -12,7 +12,7 @@ const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 3000;
 
-const SUPABASE_TARGET = process.env.REMOTE_SUPABASE_URL || 'http://72.60.195.163:9000';
+const SUPABASE_TARGET = process.env.REMOTE_SUPABASE_URL || 'https://db.kitonian.com';
 
 console.log(`Starting server with Supabase target: ${SUPABASE_TARGET}`);
 

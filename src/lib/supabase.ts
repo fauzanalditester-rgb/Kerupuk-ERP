@@ -2,9 +2,7 @@
 /// <reference types="vite/client" />
 import { createClient } from '@supabase/supabase-js';
 
-// Use our own domain as the base URL. The SDK will append /auth/v1 or /rest/v1
-// which will be caught and proxied by our server.
-const supabaseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Safeguard against missing environment variables

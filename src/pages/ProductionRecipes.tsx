@@ -96,8 +96,8 @@ export default function ProductionRecipes() {
         if (searchQuery.trim()) {
             const query = searchQuery.toLowerCase();
             list = list.filter(r =>
-                r.productName.toLowerCase().includes(query) ||
-                r.id.toLowerCase().includes(query)
+                r.productName?.toLowerCase().includes(query) ||
+                r.id?.toLowerCase().includes(query)
             );
         }
         return list;

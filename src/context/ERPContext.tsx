@@ -578,7 +578,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addRecipe = useCallback((recipe: Recipe) => {
     setRecipes(prev => {
-      const exists = prev.find(r => r.id === recipe.id || r.name.toLowerCase().trim() === recipe.name.toLowerCase().trim());
+      const exists = prev.find(r => r.id === recipe.id || r.productName?.toLowerCase().trim() === recipe.productName?.toLowerCase().trim());
       if (exists) return prev;
       return [...prev, recipe];
     });

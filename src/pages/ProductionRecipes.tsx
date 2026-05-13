@@ -75,7 +75,7 @@ export default function ProductionRecipes() {
         const category = isNewProduct ? newProductCategory : product?.category;
 
         // For new product, guess unit based on category if not selected
-        const pUnit = product ? product.unit.toLowerCase() : (newProductCategory === 'Kerupuk' ? 'kg' : 'kg');
+        const pUnit = product?.unit?.toLowerCase() || (newProductCategory === 'Kerupuk' ? 'kg' : 'kg');
         const yUnit = yieldUnit.toLowerCase();
 
         if (pUnit === yUnit) return totalRaw;

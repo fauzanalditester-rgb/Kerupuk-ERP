@@ -48,7 +48,7 @@ export default function Production() {
     const product = inventory.find(i => i.id === selectedProductId);
     if (!product) return totalRaw;
 
-    const pUnit = product.unit.toLowerCase();
+    const pUnit = (product.unit || 'kg').toLowerCase();
     const yUnit = yieldUnit.toLowerCase();
 
     if (pUnit === yUnit) return totalRaw;

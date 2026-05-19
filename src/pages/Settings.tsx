@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, Save, CheckCircle2, AlertCircle, Shield, Database, Download, FileSpreadsheet } from 'lucide-react';
+import { User, Lock, Save, CheckCircle2, AlertCircle, Shield, Database, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useERP } from '../context/ERPContext';
 import { motion } from 'framer-motion';
@@ -14,7 +14,8 @@ export default function Settings() {
         transactions, 
         customers, 
         employees, 
-        stockMovements 
+        stockMovements,
+        clearAllData
     } = useERP();
     
     const [username, setUsername] = useState(user?.username || '');
@@ -22,6 +23,29 @@ export default function Settings() {
     const [confirmPassword, setConfirmPassword] = useState('');
     const [status, setStatus] = useState<{ type: 'success' | 'error' | null, message: string }>({ type: null, message: '' });
     const [loading, setLoading] = useState(false);
+    const [resetLoading, setResetLoading] = useState(false);
+
+    const handleResetData = async () => {
+        const confirmFirst = window.confirm("⚠️ PERINGATAN KERAS:\nTindakan ini akan MENGHAPUS SEMUA DATA transaksi, stok, pelanggan, resep, dan karyawan di database Anda.\n\nSistem akan kembali kosong seperti baru instalasi.\n\nApakah Anda benar-benar yakin ingin melanjutkan?");
+        if (!confirmFirst) return;
+
+        const confirmSecond = window.confirm("🔒 KONFIRMASI TERAKHIR:\nData yang terhapus TIDAK BISA DIKEMBALIKAN dengan cara apa pun.\n\nKlik OK untuk menghapus permanen sekarang.");
+        if (!confirmSecond) return;
+
+        setResetLoading(true);
+        try {
+            await clearAllData();
+            setStatus({ type: 'success', message: 'Seluruh data database berhasil dibersihkan! Memuat ulang sistem...' });
+            setTimeout(() => {
+                window.location.reload();
+            }, 2500);
+        } catch (error) {
+            setStatus({ type: 'error', message: 'Gagal mereset database. Silakan coba lagi.' });
+        } finally {
+            setResetLoading(false);
+        }
+    };
+
 
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -153,6 +177,48 @@ export default function Settings() {
                                 <p className="text-sm font-black text-slate-800">Ekspor Semua ke Excel</p>
                                 <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Format: CSV (Bisa dibuka Excel)</p>
                             </div>
+                        </button>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Reset Database Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white rounded-2xl border border-red-200 shadow-sm overflow-hidden"
+            >
+                <div className="p-6 border-b border-red-100 flex items-center gap-3 bg-red-50/50">
+                    <div className="p-2 bg-red-100 text-red-600 rounded-lg animate-pulse">
+                        <Trash2 size={20} />
+                    </div>
+                    <h3 className="text-sm font-black text-red-800 uppercase tracking-wider">Reset Database (Hapus Semua Data)</h3>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                        <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+                        <div>
+                            <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider">Peringatan Penting</h4>
+                            <p className="text-xs text-amber-700 leading-relaxed mt-1">
+                                Tindakan ini akan mengosongkan seluruh data transaksi, stok bahan baku, resep, data pelanggan, data karyawan, dan riwayat arus kas. Gunakan opsi ini jika Anda ingin memulai lembaran baru dengan data riil yang baru.
+                            </p>
+                        </div>
+                    </div>
+
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                        Sistem database utama dan semua konfigurasi sistem akan tetap aman dan tidak terganggu. Hanya data transaksi dan entri saja yang akan dihapus total.
+                    </p>
+
+                    <div className="pt-2 flex justify-end">
+                        <button 
+                            type="button"
+                            onClick={handleResetData}
+                            disabled={resetLoading}
+                            className="px-6 py-3 bg-red-600 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center gap-2 disabled:opacity-50"
+                        >
+                            <Trash2 size={18} />
+                            {resetLoading ? 'Mereset...' : 'Mulai Lembaran Baru (Reset Data)'}
                         </button>
                     </div>
                 </div>

@@ -5,7 +5,7 @@ import Modal from '../components/Modal';
 import { Customer } from '../lib/types';
 
 export default function CRM() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer, salesOrders, inventory } = useERP();
+  const { customers, addCustomer, updateCustomer, deleteCustomer, salesOrders, inventory, employees } = useERP();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState<any>(null);
@@ -23,12 +23,34 @@ export default function CRM() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [salesName, setSalesName] = useState('');
 
   // Edit Customer State
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
+  const [editSalesName, setEditSalesName] = useState('');
+
+  // Get all unique sales names for datalist autocomplete
+  const availableSalesNames = useMemo(() => {
+    const names = new Set<string>();
+    if (employees) {
+      employees
+        .filter(emp => emp.status === 'Active')
+        .forEach(emp => {
+          names.add(emp.name);
+        });
+    }
+    if (customers) {
+      customers.forEach(c => {
+        if (c.salesName) {
+          names.add(c.salesName);
+        }
+      });
+    }
+    return Array.from(names);
+  }, [employees, customers]);
 
   // Compute real stats from salesOrders
   const customerStats = useMemo(() => {
@@ -106,7 +128,8 @@ export default function CRM() {
         phone,
         address,
         totalOrders: 0,
-        totalSpent: 0
+        totalSpent: 0,
+        salesName
       };
       addCustomer(newCustomer);
       setIsModalOpen(false);
@@ -114,6 +137,7 @@ export default function CRM() {
       setEmail('');
       setPhone('');
       setAddress('');
+      setSalesName('');
     }
   };
 
@@ -123,6 +147,7 @@ export default function CRM() {
     setEditEmail(customer.email);
     setEditPhone(customer.phone);
     setEditAddress(customer.address);
+    setEditSalesName(customer.salesName || '');
     setIsEditModalOpen(true);
   };
 
@@ -298,6 +323,12 @@ export default function CRM() {
                       <MapPin size={14} className="text-slate-400 mt-0.5 shrink-0" />
                       <span className="line-clamp-1">{customer.address}</span>
                     </div>
+                    {customer.salesName && (
+                      <div className="flex items-center gap-2 text-emerald-600 font-medium">
+                        <UserCheck size={14} className="text-emerald-500 shrink-0" />
+                        <span className="truncate">Sales: {customer.salesName}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Order Stats */}
@@ -394,6 +425,16 @@ export default function CRM() {
               </div>
             </div>
 
+            {selectedCustomer.salesName && (
+              <div className="bg-slate-50 p-3 rounded-lg">
+                <p className="text-xs text-slate-400 uppercase tracking-wider mb-1">Sales Penanggung Jawab</p>
+                <div className="flex items-center gap-2">
+                  <UserCheck size={14} className="text-slate-400" />
+                  <p className="font-medium text-slate-900">{selectedCustomer.salesName}</p>
+                </div>
+              </div>
+            )}
+
             {/* Order Stats */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100 text-center">
@@ -486,7 +527,8 @@ export default function CRM() {
                   name: editName,
                   email: editEmail,
                   phone: editPhone,
-                  address: editAddress
+                  address: editAddress,
+                  salesName: editSalesName
                 });
               }
               setIsEditModalOpen(false);
@@ -532,6 +574,17 @@ export default function CRM() {
                 value={editAddress}
                 onChange={e => setEditAddress(e.target.value)}
                 rows={3}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Sales Penanggung Jawab</label>
+              <input
+                type="text"
+                placeholder="Pilih/Ketik nama sales..."
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+                value={editSalesName}
+                onChange={e => setEditSalesName(e.target.value)}
+                list="crm-sales-list"
               />
             </div>
             <div className="pt-4 flex gap-3">
@@ -606,6 +659,21 @@ export default function CRM() {
               placeholder="misal: Jl. Merdeka No. 10"
               rows={3}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Sales Penanggung Jawab</label>
+            <input
+              type="text"
+              placeholder="Pilih/Ketik nama sales..."
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
+              value={salesName}
+              onChange={e => setSalesName(e.target.value)}
+              list="crm-sales-list"
+            />
+            <datalist id="crm-sales-list">
+              {availableSalesNames.map(name => <option key={name} value={name} />)}
+            </datalist>
           </div>
 
           <div className="pt-4 flex gap-3">

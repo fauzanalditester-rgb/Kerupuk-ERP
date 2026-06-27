@@ -465,7 +465,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           address: so.customerAddress || existing.address,
           totalOrders: (existing.totalOrders || 0) + 1,
           totalSpent: (existing.totalSpent || 0) + so.totalAmount,
-          lastOrderDate: so.date.split(' ')[0]
+          lastOrderDate: so.date.split(' ')[0],
+          salesName: so.salesName || existing.salesName
         };
         return updatedCustomers;
       } else {
@@ -478,7 +479,8 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           address: so.customerAddress || '-',
           totalOrders: 1,
           totalSpent: so.totalAmount,
-          lastOrderDate: so.date.split(' ')[0]
+          lastOrderDate: so.date.split(' ')[0],
+          salesName: so.salesName
         };
         return [...prev, newCustomer];
       }

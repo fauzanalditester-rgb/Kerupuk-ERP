@@ -17,7 +17,8 @@ export default function Sales() {
     updateInventoryItem,
     customers,
     addCustomer,
-    updateCustomer
+    updateCustomer,
+    employees
   } = useERP();
   const [activeTab, setActiveTab] = useState<'orders' | 'pricelist'>('orders');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -33,6 +34,7 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
+  const [filterSales, setFilterSales] = useState('all');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortAsc, setSortAsc] = useState(false);
@@ -44,6 +46,7 @@ export default function Sales() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [salesName, setSalesName] = useState('');
   const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; discount: number; unit: string }[]>([]);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
@@ -54,6 +57,26 @@ export default function Sales() {
     return d.toISOString().split('T')[0];
   });
   const [autoComplete, setAutoComplete] = useState(true);
+
+  // Get all unique sales names for datalist autocomplete
+  const availableSalesNames = useMemo(() => {
+    const names = new Set<string>();
+    if (employees) {
+      employees
+        .filter(emp => emp.status === 'Active')
+        .forEach(emp => {
+          names.add(emp.name);
+        });
+    }
+    if (salesOrders) {
+      salesOrders.forEach(so => {
+        if (so.salesName) {
+          names.add(so.salesName);
+        }
+      });
+    }
+    return Array.from(names);
+  }, [employees, salesOrders]);
 
   // Current item being added
   const [currentItemId, setCurrentItemId] = useState('');
@@ -126,6 +149,10 @@ export default function Sales() {
 
     if (filterDate) {
       orders = orders.filter(so => so.date.startsWith(filterDate));
+    }
+
+    if (filterSales !== 'all') {
+      orders = orders.filter(so => so.salesName === filterSales);
     }
 
     orders.sort((a, b) => {
@@ -201,6 +228,7 @@ export default function Sales() {
           customerPhone,
           customerEmail,
           customerAddress,
+          salesName,
           date: getNowWithTime(),
           items: finalItemsForSO.map(item => ({
             productId: item.productId,
@@ -212,6 +240,19 @@ export default function Sales() {
           paymentMethod: paymentMethod,
           dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
         });
+
+        // Sync CRM data on edit
+        const existingCustomer = customers.find(c =>
+          c.name.toLowerCase().trim() === customerName.toLowerCase().trim()
+        );
+        if (existingCustomer) {
+          updateCustomer(existingCustomer.id, {
+            email: customerEmail || existingCustomer.email,
+            phone: customerPhone || existingCustomer.phone,
+            address: customerAddress || existingCustomer.address,
+            salesName: salesName || existingCustomer.salesName
+          });
+        }
       } else {
         const newSO: SalesOrder = {
           id: `SO-${Date.now()}`,
@@ -219,6 +260,7 @@ export default function Sales() {
           customerPhone,
           customerEmail,
           customerAddress,
+          salesName,
           date: getNowWithTime(),
           items: finalItemsForSO.map(item => ({
             productId: item.productId,
@@ -236,32 +278,6 @@ export default function Sales() {
 
         createSalesOrder(newSO);
 
-        // Sync CRM data: Update existing or add new customer (Strong Match)
-        const existingCustomer = customers.find(c =>
-          c.name.toLowerCase().trim() === customerName.toLowerCase().trim()
-        );
-        if (existingCustomer) {
-          updateCustomer(existingCustomer.id, {
-            email: customerEmail || existingCustomer.email,
-            phone: customerPhone || existingCustomer.phone,
-            address: customerAddress || existingCustomer.address,
-            totalOrders: (existingCustomer.totalOrders || 0) + 1,
-            totalSpent: (existingCustomer.totalSpent || 0) + finalTotal,
-            lastOrderDate: soDate
-          });
-        } else {
-          addCustomer({
-            id: `CUST-${Date.now()}`,
-            name: customerName,
-            email: customerEmail,
-            phone: customerPhone,
-            address: customerAddress,
-            totalOrders: 1,
-            totalSpent: finalTotal,
-            lastOrderDate: soDate
-          });
-        }
-
         if (autoComplete) {
           completeSalesOrder(newSO.id, newSO);
         }
@@ -274,6 +290,7 @@ export default function Sales() {
       setCustomerEmail('');
       setCustomerPhone('');
       setCustomerAddress('');
+      setSalesName('');
       setSoItems([]);
       setDiscount(0);
       setPaymentMethod('Cash');
@@ -344,6 +361,7 @@ export default function Sales() {
     const dataToExport = filteredOrders.map(so => ({
       'ID Pesanan': so.id,
       'Pelanggan': so.customerName,
+      'Sales': so.salesName || '-',
       'Tanggal': so.date,
       'Total Tagihan': so.totalAmount,
       'Metode': so.paymentMethod,
@@ -390,6 +408,7 @@ export default function Sales() {
               setCustomerEmail('');
               setCustomerPhone('');
               setCustomerAddress('');
+              setSalesName('');
               setSoItems([]);
               setPaymentMethod('Cash');
               setSoDate(new Date().toISOString().split('T')[0]);
@@ -509,37 +528,70 @@ export default function Sales() {
               <div className="relative">
                 <button
                   onClick={() => setIsFilterOpen(!isFilterOpen)}
-                  className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${filterStatus !== 'all'
+                  className={`px-4 py-2 border rounded-lg flex items-center gap-2 transition-colors ${(filterStatus !== 'all' || filterSales !== 'all')
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                     }`}
                 >
                   <Filter size={18} />
                   Filter
-                  {filterStatus !== 'all' && (
+                  {(filterStatus !== 'all' || filterSales !== 'all') && (
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   )}
                 </button>
                 {isFilterOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl border border-slate-200 shadow-lg z-50 p-2">
-                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3 py-2">Status</p>
-                    {[
-                      { value: 'all', label: 'Semua Status' },
-                      { value: 'Processing', label: '🟡 Diproses' },
-                      { value: 'Shipped', label: '🔵 Dikirim' },
-                      { value: 'Completed', label: '🟢 Selesai' },
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        onClick={() => { setFilterStatus(opt.value); setIsFilterOpen(false); }}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${filterStatus === opt.value
-                          ? 'bg-emerald-50 text-emerald-700 font-medium'
-                          : 'text-slate-600 hover:bg-slate-50'
-                          }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
+                  <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-xl border border-slate-200 shadow-lg z-50 p-3 space-y-4">
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 pb-1 border-b border-slate-100">Status</p>
+                      <div className="mt-1 space-y-0.5">
+                        {[
+                          { value: 'all', label: 'Semua Status' },
+                          { value: 'Processing', label: '🟡 Diproses' },
+                          { value: 'Shipped', label: '🔵 Dikirim' },
+                          { value: 'Completed', label: '🟢 Selesai' },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => { setFilterStatus(opt.value); }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${filterStatus === opt.value
+                              ? 'bg-emerald-50 text-emerald-700 font-medium'
+                              : 'text-slate-600 hover:bg-slate-50'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 pb-1 border-b border-slate-100">Sales</p>
+                      <div className="mt-1 space-y-0.5 max-h-40 overflow-y-auto custom-scrollbar">
+                        <button
+                          type="button"
+                          onClick={() => { setFilterSales('all'); }}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${filterSales === 'all'
+                            ? 'bg-emerald-50 text-emerald-700 font-medium'
+                            : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                        >
+                          Semua Sales
+                        </button>
+                        {Array.from(new Set(salesOrders.map(so => so.salesName).filter(Boolean))).map(salesNameOpt => (
+                          <button
+                            key={salesNameOpt}
+                            type="button"
+                            onClick={() => { setFilterSales(salesNameOpt!); }}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-colors ${filterSales === salesNameOpt
+                              ? 'bg-emerald-50 text-emerald-700 font-medium'
+                              : 'text-slate-600 hover:bg-slate-50'
+                              }`}
+                          >
+                            👤 {salesNameOpt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -550,6 +602,7 @@ export default function Sales() {
                   <tr>
                     <th className="px-6 py-4">Nomor SO</th>
                     <th className="px-6 py-4">Pelanggan</th>
+                    <th className="px-6 py-4">Sales</th>
                     <th className="px-6 py-4">
                       <button onClick={() => handleSort('date')} className="flex items-center gap-1 hover:text-slate-700">
                         Tanggal
@@ -571,7 +624,7 @@ export default function Sales() {
                 <tbody className="divide-y divide-slate-100">
                   {filteredOrders.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-400">
+                      <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                         <ShoppingBag size={48} className="mx-auto mb-3 opacity-20" />
                         <p className="font-medium text-slate-500">
                           {searchQuery || filterStatus !== 'all'
@@ -588,6 +641,7 @@ export default function Sales() {
                       <tr key={so.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-6 py-4 font-medium text-slate-900">{so.id}</td>
                         <td className="px-6 py-4 text-slate-600">{so.customerName}</td>
+                        <td className="px-6 py-4 text-slate-600">{so.salesName || '-'}</td>
                         <td className="px-6 py-4 text-slate-500">{so.date}</td>
                         <td className="px-6 py-4 text-slate-600">
                           {so.items.map(item => getProductName(item.productId)).join(', ')}
@@ -641,6 +695,7 @@ export default function Sales() {
                                 setCustomerEmail(so.customerEmail || '');
                                 setCustomerPhone(so.customerPhone || '');
                                 setCustomerAddress(so.customerAddress || '');
+                                setSalesName(so.salesName || '');
                                 setSoItems(so.items.map(item => ({
                                   productId: item.productId,
                                   productName: getProductName(item.productId),
@@ -832,6 +887,12 @@ export default function Sales() {
                         <p className="text-xs text-slate-600 flex items-center gap-2">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           <span className="font-bold">Contact:</span> {selectedSO.customerPhone || customerInfo?.phone}
+                        </p>
+                      )}
+                      {selectedSO.salesName && (
+                        <p className="text-xs text-slate-600 flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          <span className="font-bold">Sales:</span> {selectedSO.salesName}
                         </p>
                       )}
                       <p className="text-xs text-slate-500 italic max-w-xs leading-relaxed flex items-start gap-1.5">
@@ -1077,6 +1138,9 @@ export default function Sales() {
                     if (existing) {
                       setCustomerPhone(existing.phone || '');
                       setCustomerAddress(existing.address || '');
+                      if (existing.salesName) {
+                        setSalesName(existing.salesName);
+                      }
                     }
                   }}
                   list="customer-pos-list"
@@ -1117,6 +1181,19 @@ export default function Sales() {
                     value={soDate}
                     onChange={e => setSoDate(e.target.value)}
                   />
+                </div>
+                <div className="mt-2">
+                  <input
+                    type="text"
+                    placeholder="Pilih/Ketik Nama Sales..."
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-lg text-[11px] outline-none"
+                    value={salesName}
+                    onChange={e => setSalesName(e.target.value)}
+                    list="sales-name-list"
+                  />
+                  <datalist id="sales-name-list">
+                    {availableSalesNames.map(name => <option key={name} value={name} />)}
+                  </datalist>
                 </div>
               </div>
             </div>

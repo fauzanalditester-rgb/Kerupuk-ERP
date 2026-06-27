@@ -40,6 +40,7 @@ export interface SalesOrder {
   customerPhone?: string;
   customerEmail?: string;
   customerAddress?: string;
+  salesName?: string;
   date: string;
   items: { productId: string; quantity: number; price: number; discount?: number }[];
   totalAmount: number;
@@ -84,6 +85,7 @@ export interface Customer {
   totalOrders: number;
   totalSpent: number;
   lastOrderDate?: string;
+  salesName?: string;
 }
 
 export interface Employee {

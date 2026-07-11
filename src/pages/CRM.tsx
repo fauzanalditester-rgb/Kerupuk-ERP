@@ -737,7 +737,7 @@ export default function CRM() {
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-right w-full">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Metode Pembayaran</p>
                     <p className="text-lg font-black text-emerald-600 uppercase italic">
-                      {selectedSO.paymentMethod === 'Cash' ? '✓ Lunas (Tunai)' : '⚠ Piutang (Utang)'}
+                      {selectedSO.paymentMethod === 'Cash' ? '✓ Lunas (Tunai)' : selectedSO.paymentMethod === 'Transfer' ? '✓ Lunas (Transfer)' : '⚠ Piutang (Utang)'}
                     </p>
                   </div>
                 </div>

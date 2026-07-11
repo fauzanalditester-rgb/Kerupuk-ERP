@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle, Trash2 } from 'lucide-react';
+import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle, Trash2, Receipt, MessageSquare } from 'lucide-react';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { SalesOrder, InventoryItem } from '../lib/types';
@@ -25,6 +25,7 @@ export default function Sales() {
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState<SalesOrder | null>(null);
+  const [printMode, setPrintMode] = useState<'A4' | 'Thermal'>('A4');
 
   // Pricelist Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export default function Sales() {
   const [salesName, setSalesName] = useState('');
   const [soItems, setSoItems] = useState<{ productId: string; productName: string; quantity: number; price: number; discount: number; unit: string }[]>([]);
   const [discount, setDiscount] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt'>('Cash');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Debt' | 'Transfer'>('Cash');
   const [soDate, setSoDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState(() => {
     const d = new Date();
@@ -273,7 +274,7 @@ export default function Sales() {
           paymentMethod: paymentMethod,
           status: 'Processing',
           dueDate: paymentMethod === 'Debt' ? dueDate : undefined,
-          isPaid: paymentMethod === 'Cash'
+          isPaid: paymentMethod !== 'Debt'
         };
 
         createSalesOrder(newSO);
@@ -314,15 +315,61 @@ export default function Sales() {
     }
   };
 
-  const handlePrintInvoice = (so: SalesOrder) => {
+  const handlePrintInvoice = (so: SalesOrder, mode: 'A4' | 'Thermal') => {
     // Force a fresh state set and slightly longer delay for browser rendering
     setSelectedSO(null);
+    setPrintMode(mode);
     setTimeout(() => {
       setSelectedSO({ ...so });
       setTimeout(() => {
         window.print();
       }, 800);
     }, 50);
+  };
+
+  const handleSendWhatsApp = (so: SalesOrder) => {
+    let phone = so.customerPhone || '';
+    if (!phone) {
+      const cInfo = customers.find(c => c.name?.toLowerCase().trim() === so.customerName?.toLowerCase().trim());
+      if (cInfo && cInfo.phone) {
+        phone = cInfo.phone;
+      }
+    }
+
+    if (!phone) {
+      alert('Nomor telepon pelanggan tidak tersedia!');
+      return;
+    }
+
+    // Convert leading '0' to international format '62'
+    if (phone.startsWith('0')) {
+      phone = '62' + phone.slice(1);
+    }
+    phone = phone.replace(/\D/g, '');
+
+    const itemsText = so.items.map(item => {
+      const pName = getProductName(item.productId);
+      const qty = item.quantity;
+      const pUnit = getSalesUnit(item.productId);
+      const price = item.price;
+      const subtotal = Math.round(qty * price * (1 - (item.discount || 0) / 100));
+      return `- ${pName} (${qty} ${pUnit}) x Rp ${price.toLocaleString('id-ID')} = Rp ${subtotal.toLocaleString('id-ID')}`;
+    }).join('\n');
+
+    const message = `Halo ${so.customerName.toUpperCase()},\n\n` +
+      `Berikut rincian Invoice Penjualan Anda dari KITO NIAN:\n\n` +
+      `No. Nota : ${so.id}\n` +
+      `Tanggal  : ${so.date}\n` +
+      `Metode   : ${so.paymentMethod === 'Cash' ? 'TUNAI' : so.paymentMethod === 'Transfer' ? 'TRANSFER' : 'UTANG/TEMPO'} (${so.isPaid ? 'Lunas' : 'Belum Lunas'})\n\n` +
+      `--------------------------------------------------\n` +
+      `RINCIAN BARANG:\n${itemsText}\n` +
+      `--------------------------------------------------\n\n` +
+      `TOTAL AKHIR: Rp ${so.totalAmount.toLocaleString('id-ID')}\n\n` +
+      `Terima kasih atas pesanan Anda!\n` +
+      `Sistem ERP KITO NIAN`;
+
+    const waUrl = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
   };
 
   const getStatusLabel = (status: string) => {
@@ -649,9 +696,11 @@ export default function Sales() {
                         <td className="px-6 py-4">
                           <span className={cn(
                             "px-2 py-1 rounded text-[10px] font-bold uppercase",
-                            so.paymentMethod === 'Cash' ? "bg-blue-50 text-blue-600" : "bg-red-50 text-red-600"
+                            so.paymentMethod === 'Cash' ? "bg-emerald-50 text-emerald-600" :
+                            so.paymentMethod === 'Transfer' ? "bg-blue-50 text-blue-600" :
+                            "bg-rose-50 text-rose-600"
                           )}>
-                            {so.paymentMethod === 'Cash' ? 'Cash' : 'Utang'}
+                            {so.paymentMethod === 'Cash' ? 'Cash' : so.paymentMethod === 'Transfer' ? 'Transfer' : 'Utang'}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-900 font-medium">Rp {so.totalAmount.toLocaleString()}</td>
@@ -673,11 +722,25 @@ export default function Sales() {
                               <Eye size={14} /> Lihat
                             </button>
                             <button
-                              onClick={() => handlePrintInvoice(so)}
+                              onClick={() => handlePrintInvoice(so, 'A4')}
                               className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-all"
-                              title="Cetak Invoice"
+                              title="Cetak Invoice (A4)"
                             >
                               <Printer size={16} />
+                            </button>
+                            <button
+                              onClick={() => handlePrintInvoice(so, 'Thermal')}
+                              className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                              title="Cetak Struk Thermal (58mm)"
+                            >
+                              <Receipt size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleSendWhatsApp(so)}
+                              className="p-1.5 text-slate-400 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition-all"
+                              title="Kirim Invoice ke WhatsApp"
+                            >
+                              <MessageSquare size={16} />
                             </button>
                             {so.status !== 'Completed' && (
                               <button
@@ -921,16 +984,21 @@ export default function Sales() {
                       <p className="text-[9px] font-black text-slate-400 uppercase mb-1 tracking-tight">Status Bayar</p>
                       <span className={cn(
                         "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border tracking-wider flex items-center gap-1.5 w-fit",
-                        selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"
+                        selectedSO.paymentMethod !== 'Debt' || selectedSO.isPaid ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-rose-50 text-rose-700 border-rose-200"
                       )}>
-                        {(selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid) ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
-                        {(selectedSO.paymentMethod === 'Cash' || selectedSO.isPaid) ? 'LUNAS' : 'BELUM LUNAS'}
+                        {(selectedSO.paymentMethod !== 'Debt' || selectedSO.isPaid) ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                        {(selectedSO.paymentMethod !== 'Debt' || selectedSO.isPaid) ? 'LUNAS' : 'BELUM LUNAS'}
                       </span>
                     </div>
                     {/* Add Payment Method indicator separately */}
                     <div className="col-span-2 pt-1 border-t border-slate-100 flex items-center justify-between">
                       <span className="text-[10px] font-bold text-slate-400 uppercase">Metode Pembayaran:</span>
-                      <span className={cn("text-[10px] font-black uppercase px-2 py-0.5 rounded", selectedSO.paymentMethod === 'Cash' ? "text-blue-600 bg-blue-50" : "text-rose-600 bg-rose-50")}>
+                      <span className={cn(
+                        "text-[10px] font-black uppercase px-2 py-0.5 rounded",
+                        selectedSO.paymentMethod === 'Cash' ? "text-emerald-600 bg-emerald-50" :
+                        selectedSO.paymentMethod === 'Transfer' ? "text-blue-600 bg-blue-50" :
+                        "text-rose-600 bg-rose-50"
+                      )}>
                         {selectedSO.paymentMethod}
                       </span>
                     </div>
@@ -1321,6 +1389,13 @@ export default function Sales() {
                   </button>
                   <button
                     type="button"
+                    onClick={() => setPaymentMethod('Transfer')}
+                    className={cn("px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all", paymentMethod === 'Transfer' ? "bg-blue-600 text-white shadow-sm" : "text-slate-500")}
+                  >
+                    Transfer
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setPaymentMethod('Debt')}
                     className={cn("px-3 py-1 rounded-md text-[10px] font-black uppercase transition-all", paymentMethod === 'Debt' ? "bg-rose-600 text-white shadow-sm" : "text-slate-500")}
                   >
@@ -1371,7 +1446,7 @@ export default function Sales() {
         id="invoice-print" 
         className="fixed -left-[9999px] top-0 print:static print:left-0 bg-white w-full p-8 font-sans text-slate-900 z-[-1] print:z-[9999]"
       >
-        {selectedSO && (() => {
+        {selectedSO && printMode === 'A4' && (() => {
           const sName = selectedSO.customerName?.toLowerCase().trim() || "";
           const customerInfo = customers.find(c => 
             c.name?.toLowerCase().trim() === sName
@@ -1426,7 +1501,7 @@ export default function Sales() {
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-right w-full">
                     <p className="text-[10px] font-bold text-slate-400 uppercase">Metode Pembayaran</p>
                     <p className="text-lg font-black text-emerald-600 uppercase italic">
-                      {selectedSO.paymentMethod === 'Cash' ? '✓ Lunas (Tunai)' : '⚠ Piutang (Utang)'}
+                      {selectedSO.paymentMethod === 'Cash' ? '✓ Lunas (Tunai)' : selectedSO.paymentMethod === 'Transfer' ? '✓ Lunas (Transfer)' : '⚠ Piutang (Utang)'}
                     </p>
                   </div>
                 </div>
@@ -1504,23 +1579,122 @@ export default function Sales() {
         })()}
       </div>
 
+      {/* PRINTABLE RECEIPT AREA (Off-screen on UI, visible on print) */}
+      <div 
+        id="receipt-print" 
+        className="fixed -left-[9999px] top-0 print:static print:left-0 bg-white w-[58mm] p-2 font-mono text-black z-[-1] print:z-[9999]"
+      >
+        {selectedSO && printMode === 'Thermal' && (() => {
+          const sName = selectedSO.customerName?.toLowerCase().trim() || "";
+          const customerInfo = customers.find(c => 
+            c.name?.toLowerCase().trim() === sName
+          );
+          return (
+            <div className="w-full text-[10px] leading-tight space-y-1">
+              <div className="text-center space-y-0.5">
+                <h2 className="text-sm font-black uppercase tracking-tight">KITO NIAN</h2>
+                <p className="text-[9px]">Palembang, Sumatera Selatan</p>
+                <p className="text-[9px]">WhatsApp: 0812-3456-7890</p>
+              </div>
+              
+              <div className="border-t border-dashed border-black my-1"></div>
+              
+              <div className="space-y-0.5 text-[9px]">
+                <p><span className="font-bold">No. Nota :</span> {selectedSO.id}</p>
+                <p><span className="font-bold">Tanggal  :</span> {selectedSO.date}</p>
+                <p><span className="font-bold">Pelanggan:</span> {selectedSO.customerName.toUpperCase()}</p>
+                {selectedSO.salesName && (
+                  <p><span className="font-bold">Sales    :</span> {selectedSO.salesName.toUpperCase()}</p>
+                )}
+                <p><span className="font-bold">Bayar    :</span> {selectedSO.paymentMethod === 'Cash' ? 'TUNAI' : selectedSO.paymentMethod === 'Transfer' ? 'TRANSFER' : 'UTANG/TEMPO'}</p>
+              </div>
+              
+              <div className="border-t border-dashed border-black my-1"></div>
+              
+              {/* Items List */}
+              <div className="space-y-1 text-[9px]">
+                {selectedSO.items.map((item, index) => {
+                  const pName = getProductName(item.productId);
+                  const pUnit = getSalesUnit(item.productId);
+                  const qty = item.quantity;
+                  const price = item.price;
+                  const disc = item.discount || 0;
+                  return (
+                    <div key={index} className="space-y-0.5">
+                      <p className="font-bold uppercase">{pName}</p>
+                      <div className="flex justify-between pl-2">
+                        <span>{qty} {pUnit} x Rp {price.toLocaleString()}</span>
+                        <span>Rp {Math.round(qty * price).toLocaleString()}</span>
+                      </div>
+                      {disc > 0 && (
+                        <div className="flex justify-between pl-2 text-black/70 italic">
+                          <span>  Diskon {disc}%</span>
+                          <span>-Rp {Math.round((qty * price * disc) / 100).toLocaleString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <div className="border-t border-dashed border-black my-1"></div>
+              
+              {/* Totals */}
+              <div className="space-y-0.5 text-[9px] pl-4">
+                <div className="flex justify-between">
+                  <span>Tagihan Barang:</span>
+                  <span>Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0).toLocaleString()}</span>
+                </div>
+                {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (item.discount || 0) / 100), 0) > 0 && (
+                  <div className="flex justify-between italic">
+                    <span>Total Diskon:</span>
+                    <span>-Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (item.discount || 0) / 100), 0).toLocaleString()}</span>
+                  </div>
+                )}
+                {selectedSO.discount > 0 && (
+                  <div className="flex justify-between italic">
+                    <span>Diskon Khusus ({selectedSO.discount}%):</span>
+                    <span>-Rp {((selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (1 - (item.discount || 0) / 100)), 0) * selectedSO.discount) / 100).toLocaleString()}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-bold border-t border-dotted border-black pt-0.5 mt-0.5 text-[10px]">
+                  <span>TOTAL AKHIR:</span>
+                  <span>Rp {selectedSO.totalAmount.toLocaleString()}</span>
+                </div>
+              </div>
+              
+              <div className="border-t border-dashed border-black my-1.5"></div>
+              
+              <div className="text-center text-[8px] space-y-0.5">
+                <p className="font-bold">*** TERIMA KASIH ***</p>
+                <p className="italic text-[7px]">Invoice sah & terhubung ke sistem ERP</p>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
       <style dangerouslySetInnerHTML={{
         __html: `
         @media print {
           @page {
-            size: A4 landscape;
-            margin: 5mm;
+            size: ${printMode === 'Thermal' ? '58mm auto' : 'A4 landscape'};
+            margin: ${printMode === 'Thermal' ? '0' : '5mm'};
           }
-          body { margin: 0; padding: 0; }
+          body { 
+            margin: 0; 
+            padding: 0;
+            width: ${printMode === 'Thermal' ? '58mm' : 'auto'};
+          }
           body * { visibility: hidden; }
-          #invoice-print, #invoice-print * { visibility: visible; }
-          #invoice-print { 
+          ${printMode === 'Thermal' ? '#receipt-print, #receipt-print *' : '#invoice-print, #invoice-print *'} { visibility: visible; }
+          ${printMode === 'Thermal' ? '#receipt-print' : '#invoice-print'} { 
             position: absolute; 
             left: 0; 
             top: 0; 
-            width: 100%;
-            height: 100%;
-            padding: 0;
+            width: ${printMode === 'Thermal' ? '58mm' : '100%'};
+            height: ${printMode === 'Thermal' ? 'auto' : '100%'};
+            padding: ${printMode === 'Thermal' ? '2mm' : '0'};
             background: white;
           }
           .no-break { break-inside: avoid; }

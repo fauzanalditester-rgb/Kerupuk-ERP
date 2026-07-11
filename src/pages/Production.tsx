@@ -214,6 +214,11 @@ export default function Production() {
 
   const handleAddMaterial = () => {
     if (currentMaterialId && currentMaterialQty > 0) {
+      const alreadyExists = materialsList.some(m => m.materialId === currentMaterialId);
+      if (alreadyExists) {
+        alert('Bahan baku ini sudah ada di daftar komposisi.');
+        return;
+      }
       const item = inventory.find(i => i.id === currentMaterialId);
       const isKgItem = item?.unit === 'kg';
       const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
@@ -253,18 +258,21 @@ export default function Production() {
 
       const finalMaterialsList = [...materialsList];
       if (currentMaterialId && currentMaterialQty > 0) {
-        const item = inventory.find(i => i.id === currentMaterialId);
-        const isKgItem = item?.unit === 'kg';
-        const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
-        let finalAmount = currentMaterialQty;
-        if (item?.category !== 'Kerupuk') {
-          if (isKgItem && currentMaterialInputUnit === 'pcs') {
-            finalAmount = Number((currentMaterialQty / 32).toFixed(5));
-          } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
-            finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+        const alreadyExists = materialsList.some(m => m.materialId === currentMaterialId);
+        if (!alreadyExists) {
+          const item = inventory.find(i => i.id === currentMaterialId);
+          const isKgItem = item?.unit === 'kg';
+          const isPcsItem = item?.unit === 'pcs' || item?.unit === 'bks';
+          let finalAmount = currentMaterialQty;
+          if (item?.category !== 'Kerupuk') {
+            if (isKgItem && currentMaterialInputUnit === 'pcs') {
+              finalAmount = Number((currentMaterialQty / 32).toFixed(5));
+            } else if (isPcsItem && currentMaterialInputUnit === 'kg') {
+              finalAmount = Number((currentMaterialQty * 32).toFixed(5));
+            }
           }
+          finalMaterialsList.push({ materialId: currentMaterialId, amount: finalAmount });
         }
-        finalMaterialsList.push({ materialId: currentMaterialId, amount: finalAmount });
       }
 
       // 4. Create Work Order based on Recipe/BOM snapshot
@@ -914,6 +922,8 @@ export default function Production() {
               <div className="flex gap-3">
                 <div className="flex-1">
                   <select
+                    name="currentMaterialId"
+                    autoComplete="off"
                     className="w-full px-3 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm"
                     value={currentMaterialId}
                     onChange={e => {
@@ -948,6 +958,8 @@ export default function Production() {
                   <div className="relative">
                     <input
                       type="number"
+                      name="currentMaterialQty"
+                      autoComplete="off"
                       step="any"
                       placeholder="Qty"
                       className="w-full pl-3 pr-7 py-2.5 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm bg-white shadow-sm"

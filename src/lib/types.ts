@@ -51,7 +51,7 @@ export interface SalesOrder {
   isPaid?: boolean;
 }
 
-export type PaymentMethod = 'Cash' | 'Debt';
+export type PaymentMethod = 'Cash' | 'Debt' | 'Transfer';
 
 export interface PurchaseOrder {
   id: string;

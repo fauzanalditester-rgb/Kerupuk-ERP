@@ -522,11 +522,11 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions(prev => [transaction, ...prev]);
 
     // 3. Update SO Status
-    setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, status: 'Completed', isPaid: so.paymentMethod === 'Cash' } : s));
+    setSalesOrders(prev => prev.map(s => s.id === id ? { ...s, status: 'Completed', isPaid: so.paymentMethod !== 'Debt' } : s));
   }, [inventory, salesOrders, updateInventoryStock]);
 
   const createPurchaseOrder = useCallback((po: PurchaseOrder) => {
-    setPurchaseOrders(prev => [{ ...po, isPaid: po.paymentMethod === 'Cash' }, ...prev]);
+    setPurchaseOrders(prev => [{ ...po, isPaid: po.paymentMethod !== 'Debt' }, ...prev]);
   }, []);
 
   const receivePurchaseOrder = useCallback((id: string, poObj?: PurchaseOrder) => {
@@ -551,7 +551,7 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTransactions(prev => [transaction, ...prev]);
 
     // 3. Update PO Status
-    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', isPaid: po.paymentMethod === 'Cash' } : p));
+    setPurchaseOrders(prev => prev.map(p => p.id === po.id ? { ...p, status: 'Received', isPaid: po.paymentMethod !== 'Debt' } : p));
   }, [purchaseOrders, updateInventoryStock]);
 
   const addCustomer = useCallback((customer: Customer) => {

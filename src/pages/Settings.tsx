@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useERP } from '../context/ERPContext';
 import { motion } from 'framer-motion';
 import { exportToExcelFormatted } from '../lib/export';
+import * as XLSX from 'xlsx';
 
 export default function Settings() {
     const { user, updateCredentials } = useAuth();
@@ -15,6 +16,8 @@ export default function Settings() {
         customers, 
         employees, 
         stockMovements,
+        workOrders,
+        recipes,
         clearAllData
     } = useERP();
     
@@ -82,6 +85,8 @@ export default function Settings() {
             customers,
             employees,
             stockMovements,
+            workOrders,
+            recipes,
             backupDate: new Date().toISOString()
         };
         const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
@@ -93,38 +98,147 @@ export default function Settings() {
     };
 
     const handleExportAllToExcel = () => {
-        // Since we can only download one file at a time easily without a zip lib,
-        // we'll prioritize Sales and Inventory as requested.
-        const salesData = salesOrders.map(so => ({
-            'ID': so.id,
-            'Pelanggan': so.customerName,
-            'Tanggal': so.date,
-            'Total': so.totalAmount,
-            'Status': so.status
-        }));
-        exportToExcelFormatted(
-            `Penjualan_KITO_NIAN_${new Date().toISOString().split('T')[0]}.xls`, 
-            'LAPORAN PENJUALAN KITO NIAN',
-            salesData,
-            '#10b981'
-        );
-        
-        setTimeout(() => {
+        try {
+            const wb = XLSX.utils.book_new();
+
+            // 1. Inventaris
             const invData = inventory.map(item => ({
-                'ID': item.id,
+                'ID Barang': item.id,
                 'Nama': item.name,
                 'Kategori': item.category,
+                'Tipe': item.type === 'raw' ? 'Bahan Baku' : 'Barang Jadi',
                 'Stok': item.stock,
-                'Unit': item.unit,
-                'Harga': item.price
+                'Satuan': item.unit,
+                'Harga Jual': item.price || 0,
+                'Minimum Stok': item.minStock || 0
             }));
-            exportToExcelFormatted(
-                `Inventaris_KITO_NIAN_${new Date().toISOString().split('T')[0]}.xls`,
-                'LAPORAN INVENTARIS KITO NIAN',
-                invData,
-                '#3b82f6'
-            );
-        }, 500);
+            const ws_inventory = XLSX.utils.json_to_sheet(invData);
+            XLSX.utils.book_append_sheet(wb, ws_inventory, "Inventaris");
+
+            // 2. Penjualan
+            const salesData = salesOrders.map(so => ({
+                'ID Nota': so.id,
+                'Nama Pelanggan': so.customerName,
+                'Tanggal': so.date,
+                'Status': so.status === 'Completed' ? 'Selesai' : 'Pending',
+                'Metode Pembayaran': so.paymentMethod === 'Cash' ? 'Tunai' : (so.paymentMethod === 'Transfer' ? 'Transfer' : 'Hutang/Tempo'),
+                'Total Penjualan': so.totalAmount,
+                'Total Bayar': so.paidAmount,
+                'Sales': so.salesName || '-'
+            }));
+            const ws_sales = XLSX.utils.json_to_sheet(salesData);
+            XLSX.utils.book_append_sheet(wb, ws_sales, "Penjualan");
+
+            // 3. Pembelian
+            const purchaseData = purchaseOrders.map(po => ({
+                'ID PO': po.id,
+                'Nama Bahan': po.itemName,
+                'Qty': po.quantity,
+                'Harga Satuan': po.pricePerUnit,
+                'Total Biaya': po.totalPrice,
+                'Supplier': po.supplierName,
+                'Tanggal Order': po.orderDate,
+                'Tanggal Terima': po.receivedDate || '-',
+                'Status': po.status === 'Received' ? 'Diterima' : 'Dipesan'
+            }));
+            const ws_purchasing = XLSX.utils.json_to_sheet(purchaseData);
+            XLSX.utils.book_append_sheet(wb, ws_purchasing, "Pembelian");
+
+            // 4. Keuangan
+            const trxData = transactions.map(trx => ({
+                'ID Transaksi': trx.id,
+                'Tipe': trx.type === 'Income' ? 'Pemasukan' : 'Pengeluaran',
+                'Kategori': trx.category,
+                'Jumlah': trx.amount,
+                'Tanggal': trx.date,
+                'Keterangan': trx.reason || '-',
+                'ID Ref': trx.referenceId || '-'
+            }));
+            const ws_finance = XLSX.utils.json_to_sheet(trxData);
+            XLSX.utils.book_append_sheet(wb, ws_finance, "Keuangan");
+
+            // 5. CRM Pelanggan
+            const customerData = customers.map(cust => ({
+                'ID Pelanggan': cust.id,
+                'Nama': cust.name,
+                'Email': cust.email || '-',
+                'Telepon': cust.phone || '-',
+                'Alamat': cust.address || '-',
+                'Total Transaksi': cust.totalOrders || 0,
+                'Total Belanja': cust.totalSpent || 0,
+                'Transaksi Terakhir': cust.lastOrderDate || '-',
+                'Sales Penanggungjawab': cust.salesName || '-'
+            }));
+            const ws_customers = XLSX.utils.json_to_sheet(customerData);
+            XLSX.utils.book_append_sheet(wb, ws_customers, "Pelanggan (CRM)");
+
+            // 6. HR Karyawan
+            const employeeData = employees.map(emp => ({
+                'ID Karyawan': emp.id,
+                'Nama': emp.name,
+                'Jabatan': emp.position,
+                'Departemen': emp.department,
+                'Gaji Bulanan': emp.salary,
+                'Tanggal Masuk': emp.joinDate,
+                'Status': emp.status === 'Active' ? 'Aktif' : 'Non-Aktif',
+                'Rekening Bank': emp.bankAccount || '-'
+            }));
+            const ws_employees = XLSX.utils.json_to_sheet(employeeData);
+            XLSX.utils.book_append_sheet(wb, ws_employees, "Karyawan (HR)");
+
+            // 7. Produksi
+            const woData = workOrders.map(wo => ({
+                'ID Perintah Kerja': wo.id,
+                'ID Produk': wo.productId,
+                'Nama Produk': inventory.find(i => i.id === wo.productId)?.name || 'Unknown',
+                'Jumlah Target': wo.quantity,
+                'Hasil Batch': (wo.batchCount || 1) * (wo.yieldPerBatch || 0),
+                'Status': wo.status === 'Completed' ? 'Selesai' : 'Pending',
+                'Tanggal Mulai': wo.startDate,
+                'Tenggat Waktu': wo.dueDate,
+                'Tanggal Selesai': wo.completedDate || '-'
+            }));
+            const ws_production = XLSX.utils.json_to_sheet(woData);
+            XLSX.utils.book_append_sheet(wb, ws_production, "Produksi");
+
+            // 8. Resep
+            const recipeData: any[] = [];
+            recipes.forEach(r => {
+                const prodName = inventory.find(i => i.id === r.productId)?.name || 'Unknown';
+                r.ingredients.forEach(ing => {
+                    const matName = inventory.find(i => i.id === ing.materialId)?.name || 'Unknown';
+                    recipeData.push({
+                        'Nama Produk': prodName,
+                        'ID Produk': r.productId,
+                        'Target Yield Resep': `${r.yieldPerBatch} ${r.yieldUnit}`,
+                        'Bahan Baku': matName,
+                        'Jumlah Kebutuhan': ing.amount,
+                        'Satuan Bahan': ing.displayUnit || 'kg'
+                    });
+                });
+            });
+            const ws_recipes = XLSX.utils.json_to_sheet(recipeData);
+            XLSX.utils.book_append_sheet(wb, ws_recipes, "Resep");
+
+            // 9. Mutasi Stok
+            const movementData = stockMovements.map(m => ({
+                'ID Mutasi': m.id,
+                'ID Barang': m.itemId,
+                'Nama Barang': m.itemName,
+                'Tipe': m.type === 'In' ? 'Masuk' : (m.type === 'Out' ? 'Keluar' : 'Penyesuaian'),
+                'Jumlah': m.amount,
+                'Alasan': m.reason,
+                'ID Referensi': m.referenceId || '-',
+                'Tanggal': m.date
+            }));
+            const ws_movements = XLSX.utils.json_to_sheet(movementData);
+            XLSX.utils.book_append_sheet(wb, ws_movements, "Mutasi Stok");
+
+            XLSX.writeFile(wb, `backup_excel_kito_nian_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } catch (error) {
+            console.error('Gagal mengekspor data ke Excel:', error);
+            alert('Gagal mengekspor data ke Excel. Silakan coba lagi.');
+        }
     };
 
     return (
@@ -175,7 +289,7 @@ export default function Settings() {
                             </div>
                             <div className="text-center">
                                 <p className="text-sm font-black text-slate-800">Ekspor Semua ke Excel</p>
-                                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Format: CSV (Bisa dibuka Excel)</p>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase mt-1">Format: XLSX (Multi-Tab Lengkap)</p>
                             </div>
                         </button>
                     </div>

@@ -26,6 +26,8 @@ export default function Sales() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedSO, setSelectedSO] = useState<SalesOrder | null>(null);
   const [printMode, setPrintMode] = useState<'A4' | 'Thermal' | 'Thermal80'>('A4');
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [previewMode, setPreviewMode] = useState<'Thermal' | 'Thermal80'>('Thermal');
 
   // Pricelist Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1086,11 +1088,19 @@ export default function Sales() {
             <div className="pt-2 flex flex-wrap gap-2 items-center">
               <button
                 type="button"
-                onClick={() => handlePrintInvoice(selectedSO, 'Thermal')}
+                onClick={() => { setPreviewMode('Thermal'); setIsPreviewModalOpen(true); }}
                 className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                title="Lihat Pratinjau Struk Kasir (Blueprint ECO 58 / ECO 80)"
+              >
+                <Eye size={15} /> Pratinjau Struk Kasir
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePrintInvoice(selectedSO, 'Thermal')}
+                className="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                 title="Cetak Struk Thermal 58mm (Blueprint ECO 58)"
               >
-                <Receipt size={15} /> Cetak Struk 58mm
+                <Receipt size={15} /> Cetak 58mm
               </button>
               <button
                 type="button"
@@ -1098,7 +1108,7 @@ export default function Sales() {
                 className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
                 title="Cetak Struk Thermal 80mm (ECO 80)"
               >
-                <Receipt size={15} /> Cetak Struk 80mm
+                <Receipt size={15} /> Cetak 80mm
               </button>
               <button
                 type="button"
@@ -1127,6 +1137,172 @@ export default function Sales() {
                 className="ml-auto px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 font-medium text-xs active:scale-95 transition-all"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+    </Modal>
+
+    {/* LIVE RECEIPT PREVIEW MODAL */}
+    <Modal
+      isOpen={isPreviewModalOpen}
+      onClose={() => setIsPreviewModalOpen(false)}
+      title={`Pratinjau Struk Kasir: ${selectedSO?.id || ''}`}
+      size="md"
+    >
+      {selectedSO && (() => {
+        const is80 = previewMode === 'Thermal80';
+        return (
+          <div className="space-y-4">
+            {/* Paper type selector */}
+            <div className="flex items-center justify-between bg-slate-100 p-1.5 rounded-xl">
+              <span className="text-xs font-bold text-slate-500 pl-2">Format Kertas:</span>
+              <div className="flex gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('Thermal')}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                    previewMode === 'Thermal' 
+                      ? "bg-white text-blue-600 shadow-sm" 
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  58mm (Blueprint ECO 58)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewMode('Thermal80')}
+                  className={cn(
+                    "px-3 py-1.5 text-xs font-bold rounded-lg transition-all",
+                    previewMode === 'Thermal80' 
+                      ? "bg-white text-purple-600 shadow-sm" 
+                      : "text-slate-600 hover:text-slate-900"
+                  )}
+                >
+                  80mm (ECO 80)
+                </button>
+              </div>
+            </div>
+
+            {/* Realistic Thermal Paper Simulation */}
+            <div className="bg-slate-200/80 p-4 rounded-2xl flex justify-center overflow-auto max-h-[55vh]">
+              <div 
+                className={cn(
+                  "bg-white text-black font-mono shadow-xl border border-slate-300 transition-all select-none",
+                  is80 ? "w-[72mm] p-3 text-[11px]" : "w-[48mm] p-2 text-[8.5px]"
+                )}
+                style={{
+                  boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+                  borderRadius: "4px"
+                }}
+              >
+                {/* Header */}
+                <div className="text-center space-y-0.5 pb-1 border-b border-dashed border-black">
+                  <h2 className={cn("font-black uppercase tracking-tight", is80 ? "text-base" : "text-xs")}>KITO NIAN</h2>
+                  <p className={is80 ? "text-[10px]" : "text-[8px]"}>Palembang, Sumatera Selatan</p>
+                  <p className={is80 ? "text-[10px]" : "text-[8px]"}>WhatsApp: 0812-3456-7890</p>
+                </div>
+                
+                {/* Metadata */}
+                <div className={cn("py-1 space-y-0.5 border-b border-dashed border-black", is80 ? "text-[10px]" : "text-[8px]")}>
+                  <div className="flex justify-between">
+                    <span>Nota : {selectedSO.id}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Tgl  : {selectedSO.date}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="truncate">Plg  : {selectedSO.customerName.toUpperCase()}</span>
+                  </div>
+                  {selectedSO.salesName && (
+                    <div className="flex justify-between">
+                      <span>Sls  : {selectedSO.salesName.toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold">
+                    <span>Byr  : {selectedSO.paymentMethod === 'Cash' ? 'TUNAI' : selectedSO.paymentMethod === 'Transfer' ? 'TRANSFER' : 'UTANG/TEMPO'}</span>
+                    <span>{selectedSO.isPaid || selectedSO.paymentMethod !== 'Debt' ? '(LUNAS)' : '(TEMPO)'}</span>
+                  </div>
+                </div>
+                
+                {/* Items List */}
+                <div className={cn("py-1 space-y-1 border-b border-dashed border-black", is80 ? "text-[10px]" : "text-[8.5px]")}>
+                  {selectedSO.items.map((item, index) => {
+                    const pName = getProductName(item.productId);
+                    const pUnit = getSalesUnit(item.productId);
+                    const qty = item.quantity;
+                    const price = item.price;
+                    const disc = item.discount || 0;
+                    const subtotal = Math.round(qty * price * (1 - disc / 100));
+                    return (
+                      <div key={index} className="space-y-0.5">
+                        <p className="font-bold uppercase truncate">{pName}</p>
+                        <div className="flex justify-between items-center">
+                          <span>{qty} {pUnit} x {price.toLocaleString('id-ID')}</span>
+                          <span className="font-bold">Rp {subtotal.toLocaleString('id-ID')}</span>
+                        </div>
+                        {disc > 0 && (
+                          <div className="flex justify-between text-[7.5px] italic text-black/80">
+                            <span>  Diskon {disc}%</span>
+                            <span>-Rp {(Math.round(qty * price * disc / 100)).toLocaleString('id-ID')}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                {/* Totals */}
+                <div className={cn("py-1 space-y-0.5 border-b border-dashed border-black", is80 ? "text-[10.5px]" : "text-[8.5px]")}>
+                  <div className="flex justify-between">
+                    <span>Tagihan Barang:</span>
+                    <span className="font-bold">Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price), 0).toLocaleString('id-ID')}</span>
+                  </div>
+                  {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (item.discount || 0) / 100), 0) > 0 && (
+                    <div className="flex justify-between italic text-[8px]">
+                      <span>Total Diskon:</span>
+                      <span>-Rp {selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (item.discount || 0) / 100), 0).toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  {selectedSO.discount > 0 && (
+                    <div className="flex justify-between italic text-[8px]">
+                      <span>Diskon Khusus ({selectedSO.discount}%):</span>
+                      <span>-Rp {((selectedSO.items.reduce((sum, item) => sum + (item.quantity * item.price * (1 - (item.discount || 0) / 100)), 0) * selectedSO.discount) / 100).toLocaleString('id-ID')}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-black border-t border-dotted border-black pt-1 mt-0.5 text-[9.5px]">
+                    <span>TOTAL AKHIR:</span>
+                    <span>Rp {selectedSO.totalAmount.toLocaleString('id-ID')}</span>
+                  </div>
+                </div>
+                
+                {/* Footer */}
+                <div className="text-center pt-1.5 pb-1 space-y-0.5">
+                  <p className="font-bold text-[8px]">*** TERIMA KASIH ***</p>
+                  <p className="italic text-[7px]">Invoice sah & terhubung ke sistem ERP</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2 justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="px-4 py-2 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-50 text-xs font-bold transition-all"
+              >
+                Tutup
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  handlePrintInvoice(selectedSO, previewMode);
+                }}
+                className="px-5 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95"
+              >
+                <Printer size={15} /> Cetak Struk ({previewMode === 'Thermal80' ? '80mm' : '58mm'})
               </button>
             </div>
           </div>

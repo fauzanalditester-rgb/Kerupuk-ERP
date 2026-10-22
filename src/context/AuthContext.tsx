@@ -36,8 +36,8 @@ const getInitialAuth = (): { user: User | null; hasSessionToken: boolean } => {
                         return {
                             user: {
                                 id: sessionUser.id,
-                                username: sessionUser.email?.split('@')[0] || 'user',
-                                name: sessionUser.user_metadata?.name || 'User',
+                                username: sessionUser.email?.split('@')[0] || 'admin',
+                                name: sessionUser.user_metadata?.name || 'Admin',
                                 role: (sessionUser.user_metadata?.role as 'admin' | 'staff') || 'admin'
                             },
                             hasSessionToken: true
@@ -65,8 +65,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (session?.user) {
                 setUser({
                     id: session.user.id,
-                    username: session.user.email?.split('@')[0] || 'user',
-                    name: session.user.user_metadata?.name || 'User',
+                    username: session.user.email?.split('@')[0] || 'admin',
+                    name: session.user.user_metadata?.name || 'Admin',
                     role: session.user.user_metadata?.role || 'admin'
                 });
             } else {
@@ -82,8 +82,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (session?.user) {
                 setUser({
                     id: session.user.id,
-                    username: session.user.email?.split('@')[0] || 'user',
-                    name: session.user.user_metadata?.name || 'User',
+                    username: session.user.email?.split('@')[0] || 'admin',
+                    name: session.user.user_metadata?.name || 'Admin',
                     role: session.user.user_metadata?.role || 'admin'
                 });
             } else {

@@ -151,14 +151,12 @@ export default function Layout() {
         <div className="p-4 border-t border-emerald-700/50 bg-emerald-950/40 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3 px-2">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-700 to-emerald-600 border border-emerald-500/40 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-inner">
-              {user?.name.charAt(0)}
+              {(user?.name && user.name.toLowerCase() !== 'user' ? user.name : 'Admin').charAt(0).toUpperCase()}
             </div>
             <div className={cn("overflow-hidden transition-all", !isSidebarOpen && "lg:hidden")}>
-              <p className="text-sm font-bold text-white truncate leading-tight uppercase tracking-tight">{user?.name}</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <p className="text-[10px] text-emerald-200/80 font-bold uppercase truncate tracking-wider">Online</p>
-              </div>
+              <p className="text-sm font-bold text-white truncate leading-tight uppercase tracking-tight">
+                {user?.name && user.name.toLowerCase() !== 'user' ? user.name : 'Admin'}
+              </p>
             </div>
           </div>
 

@@ -390,29 +390,29 @@ export default function Finance() {
 
       {/* Overdue Alert (Full Width) */}
       {(overdueReceivables.length > 0 || overduePayables.length > 0) && (
-        <div className="w-full bg-rose-50/80 border border-rose-200/90 rounded-2xl p-4 sm:p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-rose-200/70">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-200">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-rose-100 text-rose-600 rounded-xl">
+              <div className="p-2 bg-slate-100 text-slate-600 rounded-xl">
                 <AlertCircle size={18} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-black text-rose-900 uppercase tracking-wider">
+                  <h3 className="text-xs sm:text-sm font-black text-slate-800 uppercase tracking-wider">
                     Overdue (Lewat Jatuh Tempo)
                   </h3>
-                  <span className="px-2 py-0.5 bg-rose-200/80 text-rose-800 text-[10px] font-extrabold rounded-full">
+                  <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-extrabold rounded-full">
                     {overdueReceivables.length + overduePayables.length} Transaksi
                   </span>
                 </div>
-                <p className="text-[11px] text-rose-600/90 font-medium">
+                <p className="text-[11px] text-slate-500 font-medium">
                   Transaksi yang telah melewati batas tanggal jatuh tempo pembayaran dan memerlukan tindakan segera.
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2 bg-rose-100/70 px-3 py-1.5 rounded-xl self-start sm:self-auto border border-rose-200/60">
-              <span className="text-[10px] font-bold text-rose-700 uppercase">Total Tertunggak:</span>
-              <span className="text-xs font-black text-rose-900">
+            <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl self-start sm:self-auto border border-slate-200">
+              <span className="text-[10px] font-bold text-slate-600 uppercase">Total Tertunggak:</span>
+              <span className="text-xs font-black text-slate-900">
                 {fmtRp(
                   overdueReceivables.reduce((sum, so) => sum + getRemainingReceivable(so.id, so.totalAmount), 0) +
                   overduePayables.reduce((sum, po) => sum + getRemainingPayable(po.id, po.totalAmount), 0)
@@ -580,7 +580,6 @@ export default function Finance() {
         {([
           { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={16}/> },
           { id: 'transactions', label: 'Arus Kas', icon: <DollarSign size={16}/> },
-          { id: 'receivables', label: 'Piutang', icon: <Users size={16}/> },
           { id: 'payables', label: 'Hutang', icon: <Landmark size={16}/> },
           { id: 'reports', label: 'Lap. Neraca', icon: <PieChart size={16}/> },
         ] as const).map(tab => (

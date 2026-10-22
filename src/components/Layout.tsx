@@ -80,38 +80,42 @@ export default function Layout() {
           !isSidebarOpen && "lg:w-20 -translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="h-16 flex items-center justify-between px-4 border-b border-emerald-700/50">
-          <div className={cn("flex items-center gap-2.5 font-bold overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
-            <img src="/logonew.png" alt="Kito Nian Logo" className="w-8 h-8 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-white tracking-tight font-bold text-base leading-none">KITO <span className="text-emerald-300">NIAN</span></span>
-              <span className="text-[9px] text-emerald-200/80 uppercase tracking-[0.18em] font-medium mt-1 leading-none">Business System</span>
-            </div>
-          </div>
+        <div className={cn(
+          "h-16 flex items-center border-b border-emerald-700/50 transition-all",
+          isSidebarOpen ? "justify-between px-4" : "justify-center px-0"
+        )}>
+          {isSidebarOpen ? (
+            <>
+              <div className="flex items-center gap-2.5 font-bold overflow-hidden whitespace-nowrap transition-all">
+                <img src="/logonew.png" alt="Kito Nian Logo" className="w-8 h-8 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
+                <div className="flex flex-col leading-tight">
+                  <span className="text-white tracking-tight font-bold text-base leading-none">KITO <span className="text-emerald-300">NIAN</span></span>
+                  <span className="text-[9px] text-emerald-200/80 uppercase tracking-[0.18em] font-medium mt-1 leading-none">Business System</span>
+                </div>
+              </div>
 
-          {/* Toggle / Collapse Button to the right of store name */}
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className={cn(
-              "w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white shrink-0",
-              !isSidebarOpen && "hidden"
-            )}
-            title="Sembunyikan Sidebar"
-          >
-            <PanelLeftClose size={20} />
-          </button>
-
-          {/* Icon for collapsed state on desktop */}
-          {!isSidebarOpen && (
-            <div className="hidden lg:flex w-full items-center justify-center">
+              {/* Toggle / Collapse Button to the right of store name */}
               <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white"
-                title="Buka Sidebar"
+                onClick={() => setIsSidebarOpen(false)}
+                className="w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white shrink-0"
+                title="Sembunyikan Sidebar"
               >
-                <PanelLeftOpen size={20} />
+                <PanelLeftClose size={20} />
               </button>
-            </div>
+            </>
+          ) : (
+            /* When collapsed: show ONLY the logo centered */
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="p-1.5 hover:scale-105 active:scale-95 transition-transform rounded-full focus:outline-none"
+              title="Buka Sidebar (Kito Nian)"
+            >
+              <img 
+                src="/logonew.png" 
+                alt="Kito Nian Logo" 
+                className="w-9 h-9 object-contain rounded-full shadow-md border border-white/20" 
+              />
+            </button>
           )}
         </div>
 

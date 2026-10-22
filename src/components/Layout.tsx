@@ -18,6 +18,8 @@ import {
   LogOut,
   CookingPot,
   Settings as SettingsIcon,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -78,7 +80,7 @@ export default function Layout() {
           !isSidebarOpen && "lg:w-20 -translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="h-20 flex items-center justify-between px-6 border-b border-emerald-700/50">
+        <div className="h-20 flex items-center justify-between px-5 border-b border-emerald-700/50">
           <div className={cn("flex items-center gap-3 font-bold text-xl overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
             <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
             <div className="flex flex-col leading-tight">
@@ -86,19 +88,31 @@ export default function Layout() {
               <span className="text-[10px] text-emerald-200/80 uppercase tracking-[0.2em] font-medium">Business System</span>
             </div>
           </div>
-          {/* Logo for collapsed state */}
-          {!isSidebarOpen && (
-            <div className="hidden lg:flex w-full items-center justify-center">
-              <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
-            </div>
-          )}
 
+          {/* Toggle / Collapse Button to the right of store name */}
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white"
+            className={cn(
+              "p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white/90 hover:text-white shrink-0",
+              !isSidebarOpen && "hidden"
+            )}
+            title="Sembunyikan Sidebar"
           >
-            <X size={20} />
+            <PanelLeftClose size={20} />
           </button>
+
+          {/* Icon for collapsed state on desktop */}
+          {!isSidebarOpen && (
+            <div className="hidden lg:flex w-full items-center justify-center">
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white/90 hover:text-white"
+                title="Buka Sidebar"
+              >
+                <PanelLeftOpen size={20} />
+              </button>
+            </div>
+          )}
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1.5 scrollbar-hide select-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -170,8 +184,9 @@ export default function Layout() {
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
+              title={isSidebarOpen ? "Sembunyikan Sidebar" : "Buka Sidebar"}
             >
-              <Menu size={20} />
+              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </button>
             <h1 className="text-lg font-semibold text-slate-800 hidden sm:block">
               {sidebarItems.find(item => item.path === location.pathname)?.name || 'Dashboard'}
@@ -194,9 +209,9 @@ export default function Layout() {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8 bg-slate-50/50">
-          <div className="max-w-7xl mx-auto">
+        {/* Page Content - Full Width without empty left/right margins */}
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50/50">
+          <div className="w-full">
             <Outlet />
           </div>
         </main>

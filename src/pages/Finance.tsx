@@ -426,7 +426,7 @@ export default function Finance() {
               const remaining = getRemainingReceivable(so.id, so.totalAmount);
               const daysLate = so.dueDate ? Math.abs(diffDays(so.dueDate)) : 0;
               return (
-                <div key={so.id} className="w-full bg-white border border-rose-100 hover:border-rose-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
+                <div key={so.id} className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
@@ -475,7 +475,7 @@ export default function Finance() {
               const remaining = getRemainingPayable(po.id, po.totalAmount);
               const daysLate = po.dueDate ? Math.abs(diffDays(po.dueDate)) : 0;
               return (
-                <div key={po.id} className="w-full bg-white border border-rose-100 hover:border-rose-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
+                <div key={po.id} className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">

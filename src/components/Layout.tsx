@@ -74,30 +74,30 @@ export default function Layout() {
       {/* Sidebar */}
       <motion.aside
         className={cn(
-          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-slate-800",
+          "fixed lg:static inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-emerald-800 via-emerald-900 to-emerald-950 text-white shadow-2xl flex flex-col transition-all duration-300 ease-in-out border-r border-emerald-700/50",
           !isSidebarOpen && "lg:w-20 -translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/50">
+        <div className="h-20 flex items-center justify-between px-6 border-b border-emerald-700/50">
           <div className={cn("flex items-center gap-3 font-bold text-xl overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
-            <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md" />
+            <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
             <div className="flex flex-col leading-tight">
-              <span className="text-white tracking-tight">KITO <span className="text-emerald-500">NIAN</span></span>
-              <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-medium">Business System</span>
+              <span className="text-white tracking-tight">KITO <span className="text-emerald-300">NIAN</span></span>
+              <span className="text-[10px] text-emerald-200/80 uppercase tracking-[0.2em] font-medium">Business System</span>
             </div>
           </div>
           {/* Logo for collapsed state */}
           {!isSidebarOpen && (
             <div className="hidden lg:flex w-full items-center justify-center">
-              <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md" />
+              <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
             </div>
           )}
 
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden p-2 hover:bg-slate-800 rounded-xl transition-colors"
+            className="lg:hidden p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white"
           >
-            <X size={20} className="text-slate-400" />
+            <X size={20} />
           </button>
         </div>
 
@@ -109,24 +109,24 @@ export default function Layout() {
               className={({ isActive }) => cn(
                 "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 relative group active:scale-[0.98]",
                 isActive
-                  ? "bg-gradient-to-r from-emerald-600 to-emerald-500 text-white shadow-lg shadow-emerald-500/20 font-bold"
-                  : "text-slate-500 hover:bg-slate-800/80 hover:text-white font-medium"
+                  ? "bg-emerald-600 text-white shadow-lg shadow-emerald-950/30 font-bold border border-emerald-400/30"
+                  : "text-white/85 hover:bg-emerald-700/50 hover:text-white font-medium"
               )}
             >
-              <item.icon size={22} className={cn("shrink-0 transition-transform group-hover:scale-110")} />
-              <span className={cn("text-sm whitespace-nowrap transition-opacity duration-200 tracking-tight", !isSidebarOpen && "lg:hidden")}>
+              <item.icon size={22} className={cn("shrink-0 transition-transform group-hover:scale-110 text-white")} />
+              <span className={cn("text-sm whitespace-nowrap transition-opacity duration-200 tracking-tight text-white", !isSidebarOpen && "lg:hidden")}>
                 {item.name}
               </span>
 
               {/* Active Indicator bar */}
               <div className={cn(
-                "absolute left-0 w-1 h-6 bg-white rounded-r-full transition-all duration-300 scale-y-0 opacity-0",
+                "absolute left-0 w-1.5 h-6 bg-white rounded-r-full transition-all duration-300 scale-y-0 opacity-0",
                 location.pathname === item.path && "scale-y-100 opacity-100"
               )} />
 
               {/* Tooltip for collapsed state */}
               {!isSidebarOpen && (
-                <div className="hidden lg:block absolute left-full ml-2 px-2 py-1 bg-slate-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                <div className="hidden lg:block absolute left-full ml-2 px-2.5 py-1 bg-emerald-950 text-white text-xs rounded-md shadow-lg border border-emerald-700/50 opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
                   {item.name}
                 </div>
               )}
@@ -134,16 +134,16 @@ export default function Layout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50 backdrop-blur-sm space-y-4">
+        <div className="p-4 border-t border-emerald-700/50 bg-emerald-950/40 backdrop-blur-sm space-y-4">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 border border-slate-600 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-inner">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-700 to-emerald-600 border border-emerald-500/40 flex items-center justify-center text-sm font-black text-white shrink-0 shadow-inner">
               {user?.name.charAt(0)}
             </div>
             <div className={cn("overflow-hidden transition-all", !isSidebarOpen && "lg:hidden")}>
               <p className="text-sm font-bold text-white truncate leading-tight uppercase tracking-tight">{user?.name}</p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <p className="text-[10px] text-slate-500 font-bold uppercase truncate tracking-wider">Online</p>
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <p className="text-[10px] text-emerald-200/80 font-bold uppercase truncate tracking-wider">Online</p>
               </div>
             </div>
           </div>
@@ -151,13 +151,13 @@ export default function Layout() {
           <button
             onClick={logout}
             className={cn(
-              "w-full flex items-center gap-3 px-4 py-3 text-slate-400 hover:bg-red-500 hover:text-white rounded-xl transition-all duration-200 group active:scale-[0.98]",
+              "w-full flex items-center gap-3 px-4 py-3 text-white/80 hover:bg-red-600 hover:text-white rounded-xl transition-all duration-200 group active:scale-[0.98]",
               !isSidebarOpen && "lg:justify-center lg:px-0"
             )}
             title="Keluar"
           >
-            <LogOut size={20} className="group-hover:rotate-12 transition-transform" />
-            <span className={cn("text-[10px] font-bold uppercase tracking-[0.1em] transition-all", !isSidebarOpen && "lg:hidden")}>Keluar Sistem</span>
+            <LogOut size={20} className="group-hover:rotate-12 transition-transform text-white" />
+            <span className={cn("text-[10px] font-bold uppercase tracking-[0.1em] transition-all text-white", !isSidebarOpen && "lg:hidden")}>Keluar Sistem</span>
           </button>
         </div>
       </motion.aside>

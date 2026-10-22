@@ -80,9 +80,7 @@ export default function Layout() {
       >
         <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/50">
           <div className={cn("flex items-center gap-3 font-bold text-xl overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-              <span className="text-white text-xl font-black">K</span>
-            </div>
+            <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md" />
             <div className="flex flex-col leading-tight">
               <span className="text-white tracking-tight">KITO <span className="text-emerald-500">NIAN</span></span>
               <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-medium">Business System</span>
@@ -91,9 +89,7 @@ export default function Layout() {
           {/* Logo for collapsed state */}
           {!isSidebarOpen && (
             <div className="hidden lg:flex w-full items-center justify-center">
-              <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/20">
-                <span className="text-white text-xl font-black">K</span>
-              </div>
+              <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md" />
             </div>
           )}
 

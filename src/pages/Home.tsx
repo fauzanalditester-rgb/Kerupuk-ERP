@@ -63,7 +63,7 @@ const styles = {
     right: 0,
     zIndex: 100 
   },
-  logo: { fontFamily: "'Playfair Display', serif", fontWeight: 900, fontSize: 28, color: '#E5E4E2', letterSpacing: 1 },
+  logo: { display: 'flex', alignItems: 'center', gap: '12px', fontFamily: "'Playfair Display', serif", fontWeight: 900, fontSize: 28, color: '#E5E4E2', letterSpacing: 1 },
   hero: { position: 'relative' as const, padding: '100px 40px 140px', display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center', textAlign: 'center' as const, minHeight: '600px', overflow: 'hidden' as const },
   heroBgImg: { position: 'absolute' as const, top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' as const, zIndex: 1, opacity: 0.8 },
   heroOverlay: { position: 'absolute' as const, top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.7) 100%)', zIndex: 2 },
@@ -182,7 +182,20 @@ export default function Home() {
       <div style={styles.heroWrapper}>
         {/* Header */}
         <header style={{ ...styles.header, padding: isMobile ? '12px 20px' : '16px 40px', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 12 : 0 }}>
-          <div style={{ ...styles.logo, fontSize: isMobile ? 22 : 28 }}>KITO NIAN</div>
+          <div style={{ ...styles.logo, fontSize: isMobile ? 22 : 28 }}>
+            <img 
+              src="/logonew.png" 
+              alt="Logo Kito Nian" 
+              style={{ 
+                width: isMobile ? 36 : 46, 
+                height: isMobile ? 36 : 46, 
+                objectFit: 'contain',
+                borderRadius: '50%',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
+              }} 
+            />
+            <span>KITO NIAN</span>
+          </div>
           
           <nav style={{ ...styles.topNav, gap: isMobile ? '12px' : '30px', overflowX: isMobile ? 'auto' : 'visible', width: isMobile ? '100%' : 'auto', paddingBottom: isMobile ? 8 : 0, justifyContent: 'center' }}>
             {[

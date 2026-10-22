@@ -39,8 +39,8 @@ export default function Login() {
                 className="max-w-md w-full"
             >
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-600 rounded-2xl shadow-lg shadow-emerald-200 mb-4 transform -rotate-6">
-                        <LogIn className="text-white" size={32} />
+                    <div className="inline-flex items-center justify-center w-20 h-20 mb-4 drop-shadow-md">
+                        <img src="/logonew.png" alt="Logo Kito Nian" className="w-full h-full object-contain rounded-full" />
                     </div>
                     <h1 className="text-3xl font-bold text-slate-900">KITO NIAN</h1>
                     <p className="text-slate-500 mt-2">Silakan masuk untuk mengelola bisnis Anda</p>

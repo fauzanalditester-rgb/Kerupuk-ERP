@@ -80,12 +80,12 @@ export default function Layout() {
           !isSidebarOpen && "lg:w-20 -translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="h-20 flex items-center justify-between px-5 border-b border-emerald-700/50">
-          <div className={cn("flex items-center gap-3 font-bold text-xl overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
-            <img src="/logonew.png" alt="Kito Nian Logo" className="w-10 h-10 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
+        <div className="h-16 flex items-center justify-between px-4 border-b border-emerald-700/50">
+          <div className={cn("flex items-center gap-2.5 font-bold overflow-hidden whitespace-nowrap transition-all", !isSidebarOpen && "lg:hidden")}>
+            <img src="/logonew.png" alt="Kito Nian Logo" className="w-8 h-8 object-contain shrink-0 rounded-full shadow-md border border-white/20" />
             <div className="flex flex-col leading-tight">
-              <span className="text-white tracking-tight">KITO <span className="text-emerald-300">NIAN</span></span>
-              <span className="text-[10px] text-emerald-200/80 uppercase tracking-[0.2em] font-medium">Business System</span>
+              <span className="text-white tracking-tight font-bold text-base leading-none">KITO <span className="text-emerald-300">NIAN</span></span>
+              <span className="text-[9px] text-emerald-200/80 uppercase tracking-[0.18em] font-medium mt-1 leading-none">Business System</span>
             </div>
           </div>
 
@@ -93,7 +93,7 @@ export default function Layout() {
           <button
             onClick={() => setIsSidebarOpen(false)}
             className={cn(
-              "p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white/90 hover:text-white shrink-0",
+              "w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white shrink-0",
               !isSidebarOpen && "hidden"
             )}
             title="Sembunyikan Sidebar"
@@ -106,7 +106,7 @@ export default function Layout() {
             <div className="hidden lg:flex w-full items-center justify-center">
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 hover:bg-emerald-700/60 rounded-xl transition-colors text-white/90 hover:text-white"
+                className="w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white"
                 title="Buka Sidebar"
               >
                 <PanelLeftOpen size={20} />
@@ -183,7 +183,7 @@ export default function Layout() {
           <div className="flex items-center gap-4">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
+              className="w-9 h-9 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
               title={isSidebarOpen ? "Sembunyikan Sidebar" : "Buka Sidebar"}
             >
               {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}

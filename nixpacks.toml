@@ -1,0 +1,14 @@
+# Nixpacks configuration to drastically speed up Coolify deployments
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm ci --prefer-offline --no-audit"]
+cacheDirectories = ["node_modules", "/root/.npm"]
+
+[phases.build]
+cmds = ["npm run build"]
+cacheDirectories = ["dist"]
+
+[start]
+cmd = "node server.js"

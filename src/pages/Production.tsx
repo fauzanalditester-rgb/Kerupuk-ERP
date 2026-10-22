@@ -1035,7 +1035,13 @@ export default function Production() {
 
 
 
-          <div className="pt-4 flex gap-3">
+          {/* Kebutuhan No. 7: Pemotongan stok saat memasak */}
+          <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
+            <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
+            <span>Saat disimpan, seluruh bahan baku di atas akan <strong>otomatis terpotong</strong> dari stok inventaris dan hasil produksi masuk ke stok barang jadi.</span>
+          </div>
+
+          <div className="pt-2 flex gap-3">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
@@ -1047,7 +1053,7 @@ export default function Production() {
               type="submit"
               className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold shadow-lg shadow-emerald-100 transition-all active:scale-[0.98]"
             >
-              Buat Perintah Kerja
+              Selesaikan Masak & Potong Stok
             </button>
           </div>
         </form>

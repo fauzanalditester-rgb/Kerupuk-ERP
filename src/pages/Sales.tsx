@@ -37,7 +37,7 @@ export default function Sales() {
   const [posCategory, setPosCategory] = useState('all');
   const [posCustomerName, setPosCustomerName] = useState('');
   const [posCustomerPhone, setPosCustomerPhone] = useState('');
-  const [posSalesPerson, setPosSalesPerson] = useState('Kasir');
+  const [posSalesPerson, setPosSalesPerson] = useState('Kito Nian');
   const [posPaymentMethod, setPaymentMethodPos] = useState<'Cash' | 'Transfer' | 'Debt'>('Cash');
   const [posCashReceived, setPosCashReceived] = useState<number>(0);
   const [posDiscount, setPosDiscount] = useState<number>(0);
@@ -493,6 +493,55 @@ export default function Sales() {
     setPosCart(prev => prev.map(item => item.productId === productId ? { ...item, price: Math.max(0, newPrice) } : item));
   };
 
+  const handlePosChangeUnit = (productId: string, newUnit: string) => {
+    setPosCart(prev => prev.map(item => {
+      if (item.productId !== productId) return item;
+      const oldUnit = item.unit;
+      if (oldUnit === newUnit) return item;
+
+      let newQty = item.quantity;
+      let newPrice = item.price;
+      const baseMasterPrice = item.originalPrice ?? item.price;
+
+      if (newUnit === 'gr') {
+        if (oldUnit === 'kg') {
+          newQty = Math.max(100, Math.round(item.quantity * 1000));
+        } else {
+          newQty = 250;
+        }
+        // Harga per gram = harga master per kg / 1000 (contoh: Rp 60.000/kg => Rp 60/gr)
+        newPrice = Math.max(1, Math.round(baseMasterPrice / 1000));
+      } else if (newUnit === 'kg') {
+        if (oldUnit === 'gr') {
+          newQty = Number((item.quantity / 1000).toFixed(3));
+        } else {
+          newQty = 1;
+        }
+        newPrice = baseMasterPrice;
+      } else if (newUnit === 'bks') {
+        if (oldUnit === 'gr') {
+          newQty = Math.max(1, Math.round(item.quantity / 250));
+        } else if (oldUnit === 'kg') {
+          newQty = Math.max(1, Math.round(item.quantity * 4));
+        } else {
+          newQty = 1;
+        }
+        // Standar 1 bungkus = 250gr (1/4 harga master per kg)
+        newPrice = Math.round(baseMasterPrice * 0.25);
+      } else if (newUnit === 'pcs') {
+        newQty = 1;
+        newPrice = baseMasterPrice;
+      }
+
+      return {
+        ...item,
+        unit: newUnit,
+        quantity: newQty,
+        price: newPrice
+      };
+    }));
+  };
+
   const handlePosRemoveItem = (productId: string) => {
     setPosCart(prev => prev.filter(item => item.productId !== productId));
   };
@@ -546,12 +595,13 @@ export default function Sales() {
         updateSalesOrder(editingSO.id, {
           customerName: posCustomerName.trim() || 'Pelanggan Umum',
           customerPhone: posCustomerPhone.trim() || undefined,
-          salesName: posSalesPerson.trim() || 'Kasir',
+          salesName: posSalesPerson.trim() || 'Kito Nian',
           items: posCart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
             price: Math.round(item.price),
-            discount: item.discount
+            discount: item.discount,
+            unit: item.unit
           })),
           totalAmount: posGrandTotal,
           discount: posDiscount,
@@ -564,7 +614,7 @@ export default function Sales() {
             ...editingSO,
             totalAmount: posGrandTotal,
             paymentMethod: posPaymentMethod,
-            items: posCart.map(i => ({ productId: i.productId, quantity: i.quantity, price: Math.round(i.price), discount: i.discount }))
+            items: posCart.map(i => ({ productId: i.productId, quantity: i.quantity, price: Math.round(i.price), discount: i.discount, unit: i.unit }))
           }, posPrintType);
         }
 
@@ -576,13 +626,14 @@ export default function Sales() {
           id: `SO-${Date.now()}`,
           customerName: posCustomerName.trim() || 'Pelanggan Umum',
           customerPhone: posCustomerPhone.trim() || undefined,
-          salesName: posSalesPerson.trim() || 'Kasir',
+          salesName: posSalesPerson.trim() || 'Kito Nian',
           date: dateWithTime,
           items: posCart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
             price: Math.round(item.price),
-            discount: item.discount
+            discount: item.discount,
+            unit: item.unit
           })),
           totalAmount: posGrandTotal,
           discount: posDiscount,
@@ -671,7 +722,7 @@ export default function Sales() {
               setEditingSO(null);
               setPosCustomerName('');
               setPosCustomerPhone('');
-              setPosSalesPerson('Kasir');
+              setPosSalesPerson('Kito Nian');
               setPosCart([]);
               setPosCashReceived(0);
               setPosDiscount(0);
@@ -1073,7 +1124,7 @@ export default function Sales() {
                   <th className="px-6 py-4">Kategori</th>
                   <th className="px-6 py-4">Nama Produk</th>
                   <th className="px-6 py-4">Satuan</th>
-                  <th className="px-6 py-4 text-right">Harga Jual per PCS</th>
+                  <th className="px-6 py-4 text-right">Harga Jual Master</th>
                   <th className="px-6 py-4 text-center">Aksi</th>
                 </tr>
               </thead>
@@ -1104,14 +1155,14 @@ export default function Sales() {
                           </span>
                         </td>
                         <td className="px-6 py-4 font-semibold text-slate-900">{item.name}</td>
-                        <td className="px-6 py-4 text-slate-500">{item.category === 'Pempek' && item.unit === 'kg' ? 'per pcs' : item.unit}</td>
+                        <td className="px-6 py-4 text-slate-600 font-bold uppercase text-xs">{item.category === 'Pempek' && item.unit === 'kg' ? 'pcs' : item.unit}</td>
                         <td className="px-6 py-4 text-right">
                           {editingId === item.id ? (
                             <div className="flex items-center justify-end gap-2 text-sm">
                               <span className="text-slate-400">Rp</span>
                               <input
                                 type="number"
-                                className="w-24 px-2 py-1 border border-emerald-500 rounded focus:outline-none text-right font-bold text-slate-900"
+                                className="w-28 px-2 py-1 border border-emerald-500 rounded focus:outline-none text-right font-bold text-slate-900"
                                 value={tempPrice}
                                 onChange={e => setTempPrice(Number(e.target.value))}
                                 autoFocus
@@ -1122,7 +1173,10 @@ export default function Sales() {
                               />
                             </div>
                           ) : (
-                            <span className="font-bold text-slate-900">Rp {item.price.toLocaleString()}</span>
+                            <div className="flex items-baseline justify-end gap-1">
+                              <span className="font-black text-slate-900">Rp {item.price.toLocaleString('id-ID')}</span>
+                              <span className="text-[11px] text-slate-400 font-medium">/{item.category === 'Pempek' && item.unit === 'kg' ? 'pcs' : item.unit}</span>
+                            </div>
                           )}
                         </td>
                         <td className="px-6 py-4 text-center">
@@ -1696,12 +1750,12 @@ export default function Sales() {
                 </div>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Kasir / Sales:</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sales:</span>
                 <input
                   type="text"
                   value={posSalesPerson}
                   onChange={(e) => setPosSalesPerson(e.target.value)}
-                  placeholder="Nama Kasir"
+                  placeholder="Kito Nian"
                   list="pos-sales-datalist"
                   className="w-36 text-right px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-700 focus:outline-none"
                 />
@@ -1747,7 +1801,7 @@ export default function Sales() {
                       <div className="flex items-start justify-between gap-1">
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-slate-800 text-xs truncate leading-snug">{item.productName}</p>
-                          <span className="text-[10px] text-slate-400">{item.unit}</span>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Satuan: {item.unit}</span>
                         </div>
                         <button
                           type="button"
@@ -1757,6 +1811,72 @@ export default function Sales() {
                           <Trash2 size={13} />
                         </button>
                       </div>
+
+                      {/* Unit Switcher (Kebutuhan No. 4: Penjualan per gram, No. 5: Penjualan per bungkus) */}
+                      <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400">Pilih Satuan:</span>
+                        <div className="flex items-center gap-1">
+                          {(['kg', 'gr', 'bks', 'pcs'] as const).map(u => (
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => handlePosChangeUnit(item.productId, u)}
+                              className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
+                                item.unit === u
+                                  ? "bg-emerald-600 text-white shadow-2xs"
+                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                              )}
+                            >
+                              {u}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Quick Presets for Gram (Kebutuhan No. 4) */}
+                      {item.unit === 'gr' && (
+                        <div className="flex items-center gap-1 bg-emerald-50/70 p-1.5 rounded-lg border border-emerald-100">
+                          <span className="text-[9px] font-black text-emerald-800 whitespace-nowrap">Takaran:</span>
+                          {[250, 500, 1000].map(gr => (
+                            <button
+                              key={gr}
+                              type="button"
+                              onClick={() => handlePosSetQty(item.productId, gr)}
+                              className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-bold transition-all border",
+                                item.quantity === gr
+                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                  : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                              )}
+                            >
+                              {gr} gr
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Quick Presets for Bungkus / Reseller (Kebutuhan No. 5) */}
+                      {item.unit === 'bks' && (
+                        <div className="flex items-center gap-1 bg-blue-50/70 p-1.5 rounded-lg border border-blue-100">
+                          <span className="text-[9px] font-black text-blue-800 whitespace-nowrap">Reseller:</span>
+                          {[1, 5, 10, 20].map(bks => (
+                            <button
+                              key={bks}
+                              type="button"
+                              onClick={() => handlePosSetQty(item.productId, bks)}
+                              className={cn(
+                                "px-2 py-0.5 rounded text-[10px] font-bold transition-all border",
+                                item.quantity === bks
+                                  ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                  : "bg-white text-blue-800 border-blue-200 hover:bg-blue-100"
+                              )}
+                            >
+                              {bks} bks
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Manual Price Override (Kebutuhan No. 3: Input Harga Manual) */}
                       <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/90">
@@ -1796,25 +1916,28 @@ export default function Sales() {
 
                       {/* Stepper & Total */}
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handlePosUpdateQty(item.productId, -1)}
+                            onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? -50 : (item.unit === 'kg' ? -0.5 : -1))}
                             className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
                           >
                             <Minus size={11} />
                           </button>
-                          <input
-                            type="number"
-                            min="0.1"
-                            step="any"
-                            value={item.quantity}
-                            onChange={(e) => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
-                            className="w-12 text-center text-xs font-black bg-white border border-slate-200 rounded-md py-0.5 focus:outline-none"
-                          />
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0.001"
+                              step="any"
+                              value={item.quantity}
+                              onChange={(e) => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
+                              className="w-16 text-center text-xs font-black bg-white border border-slate-200 rounded-md py-0.5 focus:outline-none"
+                            />
+                            <span className="text-[10px] font-bold text-slate-500">{item.unit}</span>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => handlePosUpdateQty(item.productId, 1)}
+                            onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? 50 : (item.unit === 'kg' ? 0.5 : 1))}
                             className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
                           >
                             <Plus size={11} />

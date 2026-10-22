@@ -503,9 +503,18 @@ export const ERPProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     so.items.forEach(item => {
       const inventoryItem = inventory.find(i => i.id === item.productId);
       const isKg = inventoryItem?.unit === 'kg';
-      const finalDeductionAmount = (isKg && inventoryItem?.category !== 'Kerupuk')
-        ? Number((item.quantity / 32).toFixed(5))
-        : item.quantity;
+      let finalDeductionAmount = item.quantity;
+
+      if (isKg && item.unit === 'gr') {
+        // Konversi gram ke kilogram: 1000 gr = 1 kg
+        finalDeductionAmount = Number((item.quantity / 1000).toFixed(5));
+      } else if (isKg && item.unit === 'bks') {
+        // Standar 1 bungkus = 0.25 kg (250 gram) jika master item berbasis kg
+        finalDeductionAmount = Number((item.quantity * 0.25).toFixed(5));
+      } else if (isKg && inventoryItem?.category !== 'Kerupuk' && (item.unit === 'pcs' || !item.unit)) {
+        finalDeductionAmount = Number((item.quantity / 32).toFixed(5));
+      }
+
       updateInventoryStock(item.productId, -finalDeductionAmount, 'Out', `Penjualan ${so.id}`, so.id, so.date);
     });
 

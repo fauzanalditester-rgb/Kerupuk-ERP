@@ -42,7 +42,7 @@ export interface SalesOrder {
   customerAddress?: string;
   salesName?: string;
   date: string;
-  items: { productId: string; quantity: number; price: number; discount?: number }[];
+  items: { productId: string; quantity: number; price: number; discount?: number; unit?: string }[];
   totalAmount: number;
   discount?: number; // In percentage
   paymentMethod: PaymentMethod;

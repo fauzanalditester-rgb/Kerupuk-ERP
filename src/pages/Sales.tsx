@@ -727,16 +727,9 @@ export default function Sales() {
                             <button
                               onClick={() => handlePrintInvoice(so, 'Thermal')}
                               className="p-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all"
-                              title="Cetak Struk Thermal 58mm (Blueprint ECO 58)"
+                              title="Cetak Struk Thermal (Blueprint ECO 58)"
                             >
                               <Receipt size={16} />
-                            </button>
-                            <button
-                              onClick={() => handlePrintInvoice(so, 'Thermal80')}
-                              className="px-1.5 py-0.5 text-[9px] font-black text-purple-600 hover:text-purple-700 hover:bg-purple-50 border border-purple-200 rounded transition-all"
-                              title="Cetak Struk Thermal 80mm (ECO 80)"
-                            >
-                              80mm
                             </button>
                             <button
                               onClick={() => handlePrintInvoice(so, 'A4')}
@@ -1098,17 +1091,9 @@ export default function Sales() {
                 type="button"
                 onClick={() => handlePrintInvoice(selectedSO, 'Thermal')}
                 className="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                title="Cetak Struk Thermal 58mm (Blueprint ECO 58)"
+                title="Cetak Struk Thermal (Blueprint ECO 58)"
               >
-                <Receipt size={15} /> Cetak 58mm
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePrintInvoice(selectedSO, 'Thermal80')}
-                className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-xs flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
-                title="Cetak Struk Thermal 80mm (ECO 80)"
-              >
-                <Receipt size={15} /> Cetak 80mm
+                <Receipt size={15} /> Cetak Struk
               </button>
               <button
                 type="button"

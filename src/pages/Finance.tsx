@@ -346,20 +346,22 @@ export default function Finance() {
       </div>
 
       {/* Date Filter Bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-xs font-bold text-slate-500">Periode:</span>
-        <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
-        <span className="text-xs text-slate-400">s/d</span>
-        <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm w-full">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-slate-500">Periode:</span>
+          <input type="date" value={dateFrom} onChange={e=>setDateFrom(e.target.value)} className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
+          <span className="text-xs text-slate-400">s/d</span>
+          <input type="date" value={dateTo} onChange={e=>setDateTo(e.target.value)} className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-500/20" />
+        </div>
         
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button 
             onClick={() => {
               const today = new Date().toISOString().split('T')[0];
               setDateFrom(today);
               setDateTo(today);
             }}
-            className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold hover:bg-slate-200"
+            className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"
           >
             Hari Ini
           </button>
@@ -371,17 +373,20 @@ export default function Finance() {
               setDateFrom(firstDay);
               setDateTo(lastDay);
             }}
-            className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-bold hover:bg-slate-200"
+            className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all"
           >
             Bulan Ini
           </button>
+          {(dateFrom || dateTo) && (
+            <button onClick={()=>{setDateFrom('');setDateTo('')}} className="text-xs text-rose-500 font-bold flex items-center gap-1 ml-1 px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-all">
+              <X size={13}/>Reset Filter
+            </button>
+          )}
         </div>
-
-        {(dateFrom || dateTo) && <button onClick={()=>{setDateFrom('');setDateTo('')}} className="text-xs text-rose-500 font-bold flex items-center gap-1 ml-2"><X size={12}/>Reset</button>}
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
         <SummaryCard label="Saldo Kas" value={balanceSheet.cashBalance} icon={<Wallet size={20}/>} color="blue" />
         <SummaryCard label="Piutang Jatuh Tempo" value={piutangJatuhTempo.reduce((s,so)=>s+so.totalAmount,0)} icon={<TrendingUp size={20}/>} color="emerald" sub={`${piutangJatuhTempo.length} Customer`} />
         <SummaryCard label="Hutang Jatuh Tempo" value={hutangJatuhTempo.reduce((s,po)=>s+po.totalAmount,0)} icon={<TrendingDown size={20}/>} color="orange" sub={`${hutangJatuhTempo.length} Supplier`} />
@@ -390,7 +395,7 @@ export default function Finance() {
 
       {/* Overdue & Near Due Alerts */}
       {(overdueReceivables.length > 0 || overduePayables.length > 0 || nearDueItems.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 w-full">
           {(overdueReceivables.length > 0 || overduePayables.length > 0) && (
             <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3"><AlertCircle size={16} className="text-rose-600"/><span className="text-xs font-black text-rose-700 uppercase">Overdue (Lewat Jatuh Tempo)</span></div>
@@ -436,8 +441,8 @@ export default function Finance() {
         </div>
       )}
 
-      {/* Tab Navigation */}
-      <div className="flex bg-slate-100/80 p-1 rounded-xl w-fit flex-wrap">
+      {/* Tab Navigation - Full Width */}
+      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl w-full flex-wrap gap-1 border border-slate-200/60 shadow-sm">
         {([
           { id: 'dashboard', label: 'Dashboard', icon: <BarChart3 size={16}/> },
           { id: 'transactions', label: 'Arus Kas', icon: <DollarSign size={16}/> },
@@ -446,8 +451,8 @@ export default function Finance() {
           { id: 'reports', label: 'Lap. Neraca', icon: <PieChart size={16}/> },
         ] as const).map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={cn("flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all",
-              activeTab === tab.id ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            className={cn("flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all",
+              activeTab === tab.id ? "bg-white text-slate-900 shadow-sm font-black" : "text-slate-500 hover:text-slate-800 hover:bg-white/50"
             )}>
             {tab.icon}{tab.label}
           </button>
@@ -455,7 +460,7 @@ export default function Finance() {
       </div>
 
       {/* MAIN CONTENT */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[400px] w-full">
 
         {/* === DASHBOARD TAB === */}
         {activeTab === 'dashboard' && (
@@ -566,7 +571,7 @@ export default function Finance() {
         {activeTab === 'transactions' && (
           <>
             <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4 bg-slate-50/30 flex-wrap">
-              <div className="relative flex-1 max-w-sm">
+              <div className="relative flex-1 min-w-[220px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
                 <input type="text" placeholder="Cari transaksi..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/>
               </div>
@@ -576,8 +581,8 @@ export default function Finance() {
                 <option value="Expense">Pengeluaran</option>
               </select>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left min-w-[700px]">
                 <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
                   <tr><th className="px-6 py-4">Transaksi</th><th className="px-6 py-4">Tanggal</th><th className="px-6 py-4">Kategori</th><th className="px-6 py-4">Keterangan</th><th className="px-6 py-4 text-right">Jumlah</th><th className="px-6 py-4 text-center w-20">Aksi</th></tr>
                 </thead>
@@ -587,7 +592,7 @@ export default function Finance() {
                       <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{t.id}</span><span className="text-[10px] text-slate-400 font-mono italic">{t.referenceId||'No Ref'}</span></div></td>
                       <td className="px-6 py-4 text-xs text-slate-500">{t.date}</td>
                       <td className="px-6 py-4"><span className={cn("px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-tighter", t.type==='Income'?"bg-emerald-50 text-emerald-600":"bg-rose-50 text-rose-600")}>{getCategoryLabel(t.category)}</span></td>
-                      <td className="px-6 py-4 text-xs text-slate-600 truncate max-w-[150px]">{t.description || '-'}</td>
+                      <td className="px-6 py-4 text-xs text-slate-600">{t.description || '-'}</td>
                       <td className={cn("px-6 py-4 text-sm font-black text-right", t.type==='Income'?"text-emerald-600":"text-slate-900")}>{t.type==='Income'?'+':'-'} {fmtRp(t.amount)}</td>
                       <td className="px-6 py-4 text-center"><button onClick={()=>{setSelectedTransaction(t);setIsDetailModalOpen(true)}} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Eye size={14}/></button></td>
                     </tr>
@@ -600,65 +605,79 @@ export default function Finance() {
 
         {/* === RECEIVABLES TAB === */}
         {activeTab === 'receivables' && (
-          <div className="overflow-x-auto">
-            <div className="p-4 border-b border-slate-100"><div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/><input type="text" placeholder="Cari pelanggan..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/></div></div>
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                <tr><th className="px-6 py-4">Pelanggan / SO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Tagihan</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {salesOrders.filter(so=>so.paymentMethod==='Debt'&&!so.isPaid && (!searchQuery || so.customerName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
-                  const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
-                  const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
-                  if(aO!==bO)return aO-bO;
-                  return (a.dueDate||'').localeCompare(b.dueDate||'');
-                }).map(so=>{
-                  const isOverdue=so.dueDate&&diffDays(so.dueDate)<0;
-                  const isNear=so.dueDate&&diffDays(so.dueDate)>=0&&diffDays(so.dueDate)<=7;
-                  return(
-                    <tr key={so.id} className={cn("hover:bg-slate-50/50 transition-colors", isOverdue&&"bg-rose-50/30")}>
-                      <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{so.customerName}</span><span className="text-[10px] text-blue-600 font-bold uppercase">{so.id}</span></div></td>
-                      <td className="px-6 py-4"><div className="flex items-center gap-1.5 text-xs"><Calendar size={12} className={isOverdue?"text-rose-500":isNear?"text-amber-500":"text-slate-400"}/><span className={cn(isOverdue&&"text-rose-600 font-bold",isNear&&"text-amber-600 font-bold")}>{so.dueDate||'Belum diatur'}</span></div></td>
-                      <td className="px-6 py-4">{isOverdue?(<div className="flex items-center gap-1 text-rose-600"><AlertCircle size={14}/><span className="text-[10px] font-black uppercase">Terlambat</span></div>):isNear?(<div className="flex items-center gap-1 text-amber-600"><Clock size={14}/><span className="text-[10px] font-black uppercase">H-{diffDays(so.dueDate!)}</span></div>):(<div className="flex items-center gap-1 text-emerald-500"><CheckCircle2 size={14}/><span className="text-[10px] font-black uppercase">Aman</span></div>)}</td>
-                      <td className="px-6 py-4 text-sm font-black text-slate-900 text-right">{fmtRp(getRemainingReceivable(so.id, so.totalAmount))}</td>
-                      <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'collect', id:so.id, name:so.customerName, remainingAmount:getRemainingReceivable(so.id, so.totalAmount)});setPaymentAmount(getRemainingReceivable(so.id, so.totalAmount));}} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm shadow-emerald-100">Bayar Cicilan/Lunas</button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="w-full">
+            <div className="p-4 border-b border-slate-100">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                <input type="text" placeholder="Cari pelanggan..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/>
+              </div>
+            </div>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left min-w-[700px]">
+                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <tr><th className="px-6 py-4">Pelanggan / SO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Status</th><th className="px-6 py-4 text-right">Tagihan</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {salesOrders.filter(so=>so.paymentMethod==='Debt'&&!so.isPaid && (!searchQuery || so.customerName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
+                    const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
+                    const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
+                    if(aO!==bO)return aO-bO;
+                    return (a.dueDate||'').localeCompare(b.dueDate||'');
+                  }).map(so=>{
+                    const isOverdue=so.dueDate&&diffDays(so.dueDate)<0;
+                    const isNear=so.dueDate&&diffDays(so.dueDate)>=0&&diffDays(so.dueDate)<=7;
+                    return(
+                      <tr key={so.id} className={cn("hover:bg-slate-50/50 transition-colors", isOverdue&&"bg-rose-50/30")}>
+                        <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{so.customerName}</span><span className="text-[10px] text-blue-600 font-bold uppercase">{so.id}</span></div></td>
+                        <td className="px-6 py-4"><div className="flex items-center gap-1.5 text-xs"><Calendar size={12} className={isOverdue?"text-rose-500":isNear?"text-amber-500":"text-slate-400"}/><span className={cn(isOverdue&&"text-rose-600 font-bold",isNear&&"text-amber-600 font-bold")}>{so.dueDate||'Belum diatur'}</span></div></td>
+                        <td className="px-6 py-4">{isOverdue?(<div className="flex items-center gap-1 text-rose-600"><AlertCircle size={14}/><span className="text-[10px] font-black uppercase">Terlambat</span></div>):isNear?(<div className="flex items-center gap-1 text-amber-600"><Clock size={14}/><span className="text-[10px] font-black uppercase">H-{diffDays(so.dueDate!)}</span></div>):(<div className="flex items-center gap-1 text-emerald-500"><CheckCircle2 size={14}/><span className="text-[10px] font-black uppercase">Aman</span></div>)}</td>
+                        <td className="px-6 py-4 text-sm font-black text-slate-900 text-right">{fmtRp(getRemainingReceivable(so.id, so.totalAmount))}</td>
+                        <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'collect', id:so.id, name:so.customerName, remainingAmount:getRemainingReceivable(so.id, so.totalAmount)});setPaymentAmount(getRemainingReceivable(so.id, so.totalAmount));}} className="px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase hover:bg-emerald-600 hover:text-white transition-all shadow-sm shadow-emerald-100">Bayar Cicilan/Lunas</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {/* === PAYABLES TAB === */}
         {activeTab === 'payables' && (
-          <div className="overflow-x-auto">
-            <div className="p-4 border-b border-slate-100"><div className="relative max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/><input type="text" placeholder="Cari supplier..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/></div></div>
-            <table className="w-full text-left">
-              <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
-                <tr><th className="px-6 py-4">Supplier / PO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Urgensi</th><th className="px-6 py-4 text-right">Hutang</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {purchaseOrders.filter(po=>po.paymentMethod==='Debt'&&!po.isPaid && (!searchQuery || po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
-                  const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
-                  const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
-                  if(aO!==bO)return aO-bO;
-                  return (a.dueDate||'').localeCompare(b.dueDate||'');
-                }).map(po=>{
-                  const isOverdue=po.dueDate&&diffDays(po.dueDate)<0;
-                  const isNear=po.dueDate&&diffDays(po.dueDate)>=0&&diffDays(po.dueDate)<=7;
-                  return (
-                    <tr key={po.id} className={cn("hover:bg-slate-50/50 transition-colors", isOverdue&&"bg-rose-50/30")}>
-                      <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{po.supplierName}</span><span className="text-[10px] text-orange-600 font-bold uppercase">{po.id}</span></div></td>
-                      <td className="px-6 py-4 text-xs font-medium">{po.dueDate||'N/A'}</td>
-                      <td className="px-6 py-4">{isOverdue?(<div className={cn("px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-rose-100 text-rose-700")}>Sangat Penting</div>):isNear?(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-amber-100 text-amber-700">Segera Bayar</div>):(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-slate-100 text-slate-600">Normal</div>)}</td>
-                      <td className="px-6 py-4 text-sm font-black text-rose-600 text-right">{fmtRp(getRemainingPayable(po.id, po.totalAmount))}</td>
-                      <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'pay', id:po.id, name:po.supplierName, remainingAmount:getRemainingPayable(po.id, po.totalAmount)});setPaymentAmount(getRemainingPayable(po.id, po.totalAmount));}} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Bayar Cicilan/Lunas</button></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="w-full">
+            <div className="p-4 border-b border-slate-100">
+              <div className="relative max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                <input type="text" placeholder="Cari supplier..." className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500/20 outline-none" value={searchQuery} onChange={e=>setSearchQuery(e.target.value)}/>
+              </div>
+            </div>
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left min-w-[700px]">
+                <thead className="bg-slate-50/50 text-slate-400 text-[10px] font-black uppercase tracking-widest border-b border-slate-100">
+                  <tr><th className="px-6 py-4">Supplier / PO</th><th className="px-6 py-4">Jatuh Tempo</th><th className="px-6 py-4">Urgensi</th><th className="px-6 py-4 text-right">Hutang</th><th className="px-6 py-4 text-center">Tindakan</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {purchaseOrders.filter(po=>po.paymentMethod==='Debt'&&!po.isPaid && (!searchQuery || po.supplierName.toLowerCase().includes(searchQuery.toLowerCase()))).sort((a,b)=>{
+                    const aO=a.dueDate&&diffDays(a.dueDate)<0?0:1;
+                    const bO=b.dueDate&&diffDays(b.dueDate)<0?0:1;
+                    if(aO!==bO)return aO-bO;
+                    return (a.dueDate||'').localeCompare(b.dueDate||'');
+                  }).map(po=>{
+                    const isOverdue=po.dueDate&&diffDays(po.dueDate)<0;
+                    const isNear=po.dueDate&&diffDays(po.dueDate)>=0&&diffDays(po.dueDate)<=7;
+                    return (
+                      <tr key={po.id} className={cn("hover:bg-slate-50/50 transition-colors", isOverdue&&"bg-rose-50/30")}>
+                        <td className="px-6 py-4"><div className="flex flex-col"><span className="text-xs font-bold text-slate-900">{po.supplierName}</span><span className="text-[10px] text-orange-600 font-bold uppercase">{po.id}</span></div></td>
+                        <td className="px-6 py-4 text-xs font-medium">{po.dueDate||'N/A'}</td>
+                        <td className="px-6 py-4">{isOverdue?(<div className={cn("px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-rose-100 text-rose-700")}>Sangat Penting</div>):isNear?(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-amber-100 text-amber-700">Segera Bayar</div>):(<div className="px-2 py-1 rounded w-fit text-[9px] font-black uppercase bg-slate-100 text-slate-600">Normal</div>)}</td>
+                        <td className="px-6 py-4 text-sm font-black text-rose-600 text-right">{fmtRp(getRemainingPayable(po.id, po.totalAmount))}</td>
+                        <td className="px-6 py-4 text-center"><button onClick={()=>{setPaymentModal({isOpen:true, type:'pay', id:po.id, name:po.supplierName, remainingAmount:getRemainingPayable(po.id, po.totalAmount)});setPaymentAmount(getRemainingPayable(po.id, po.totalAmount));}} className="px-3 py-1.5 bg-rose-50 text-rose-600 rounded-lg text-[10px] font-black uppercase hover:bg-rose-600 hover:text-white transition-all">Bayar Cicilan/Lunas</button></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -698,38 +717,116 @@ export default function Finance() {
 
         {/* === REPORTS/BALANCE SHEET TAB === */}
         {activeTab === 'reports' && (
-          <div className="p-8 max-w-2xl mx-auto space-y-10">
-            <div className="text-center">
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Laporan Neraca Konsolidasi</h2>
-              <p className="text-xs text-slate-400 mt-1 uppercase font-bold tracking-widest">Periode: {new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}</p>
+          <div className="p-6 lg:p-8 w-full space-y-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">Laporan Neraca Konsolidasi</h2>
+                <p className="text-xs text-slate-500 font-medium">Laporan posisi aset, liabilitas, ekuitas, dan laba rugi berjalan</p>
+              </div>
+              <div className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold uppercase tracking-wider w-fit">
+                Periode: {new Date().toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
+              </div>
             </div>
-            <div className="space-y-6">
-              <section>
-                <div className="bg-slate-50 px-4 py-2 rounded-lg flex justify-between items-center mb-4"><h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">AKTIVA (ASSETS)</h3></div>
-                <div className="space-y-2 px-4 italic text-sm">
+
+            {/* 2 Column Layout for Aktiva and Passiva */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <section className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+                <div className="bg-white border border-slate-200 px-4 py-3 rounded-xl flex justify-between items-center mb-5">
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                    AKTIVA (ASSETS)
+                  </h3>
+                  <span className="text-xs font-black text-emerald-600">{fmtRp(balanceSheet.totalAssets)}</span>
+                </div>
+                <div className="space-y-3 px-2 text-sm">
                   <ReportLine label="Kas dan Setara Kas" value={balanceSheet.cashBalance}/>
                   <ReportLine label="Persediaan Barang (Stok)" value={balanceSheet.inventoryValue}/>
                   <ReportLine label="Piutang Usaha" value={balanceSheet.totalReceivables}/>
-                  <div className="flex justify-between border-t border-slate-100 pt-2 font-black text-slate-900 not-italic"><span>Total Aktiva</span><span>{fmtRp(balanceSheet.totalAssets)}</span></div>
+                  <div className="flex justify-between border-t border-slate-200 pt-3 font-black text-slate-900">
+                    <span>Total Aktiva</span>
+                    <span className="text-emerald-700">{fmtRp(balanceSheet.totalAssets)}</span>
+                  </div>
                 </div>
               </section>
-              <section>
-                <div className="bg-slate-50 px-4 py-2 rounded-lg flex justify-between items-center mb-4"><h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">PASSIVA (LIABILITIES & EQUITY)</h3></div>
-                <div className="space-y-2 px-4 italic text-sm">
+
+              <section className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
+                <div className="bg-white border border-slate-200 px-4 py-3 rounded-xl flex justify-between items-center mb-5">
+                  <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                    PASSIVA (LIABILITIES & EQUITY)
+                  </h3>
+                  <span className="text-xs font-black text-blue-600">{fmtRp(balanceSheet.totalLiabilities + balanceSheet.equity)}</span>
+                </div>
+                <div className="space-y-3 px-2 text-sm">
                   <ReportLine label="Hutang Usaha" value={balanceSheet.totalPayables} color="text-rose-600"/>
                   <ReportLine label="Modal Disetor / Ekuitas" value={balanceSheet.equity}/>
-                  <div className="flex justify-between border-t border-slate-100 pt-2 font-black text-slate-900 not-italic"><span>Total Passiva</span><span>{fmtRp(balanceSheet.totalLiabilities + balanceSheet.equity)}</span></div>
+                  <div className="flex justify-between border-t border-slate-200 pt-3 font-black text-slate-900">
+                    <span>Total Passiva</span>
+                    <span className="text-blue-700">{fmtRp(balanceSheet.totalLiabilities + balanceSheet.equity)}</span>
+                  </div>
                 </div>
               </section>
-              <section className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl">
-                <div className="text-center mb-6"><h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Laporan Laba Rugi</h3><div className="h-px bg-slate-800 w-full mt-2"/></div>
-                <div className="space-y-4">
-                  <div><p className="text-[10px] font-black text-emerald-400 uppercase tracking-tighter mb-2">Pemasukan Operasional</p><div className="space-y-1 px-2 border-l border-emerald-500/30"><ReportLine label="Penjualan Produk" value={transactions.filter(t=>['Penjualan','Sales'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/><ReportLine label="Pelunasan Piutang" value={transactions.filter(t=>t.category==='Pelunasan Piutang').reduce((s,t)=>s+t.amount,0)} isDark/><ReportLine label="Investasi & Lainnya" value={transactions.filter(t=>t.type==='Income'&&!['Penjualan','Sales','Pelunasan Piutang'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/></div></div>
-                  <div><p className="text-[10px] font-black text-rose-400 uppercase tracking-tighter mb-2">Beban Operasional</p><div className="space-y-1 px-2 border-l border-rose-500/30"><ReportLine label="Pembelian Bahan Baku" value={transactions.filter(t=>['Bahan Baku','Raw Materials','Pembelian'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/><ReportLine label="Gaji Karyawan" value={transactions.filter(t=>['Salaries','Gaji'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/><ReportLine label="Utilitas & Sewa" value={transactions.filter(t=>['Utilities','Rent','Utilitas','Sewa'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/><ReportLine label="Beban Lain-lain" value={transactions.filter(t=>t.type==='Expense'&&!['Bahan Baku','Raw Materials','Pembelian','Salaries','Gaji','Utilities','Rent','Utilitas','Sewa'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/></div></div>
-                  <div className="pt-4 border-t border-slate-800 flex justify-between items-center"><span className="text-xs font-black uppercase">Net Profit / Loss</span><span className={cn("text-lg font-black", netProfit>=0?"text-emerald-400":"text-rose-400")}>{fmtRp(netProfit)}</span></div>
+            </div>
+
+            {/* Laporan Laba Rugi full width with 2 columns inside */}
+            <section className="bg-slate-900 text-white p-6 lg:p-8 rounded-2xl shadow-xl w-full">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-wider text-white">Laporan Laba Rugi Operasional</h3>
+                  <p className="text-xs text-slate-400">Ringkasan pendapatan vs beban berjalan</p>
                 </div>
-              </section>
-              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl"><div className="flex justify-between items-center"><div><p className="text-[10px] font-black text-emerald-600 uppercase">Kesehatan Keuangan</p><p className="text-xs font-bold text-emerald-800">Status: {netProfit>=0?'SANGAT BAIK':'PERLU PERHATIAN'}</p></div>{netProfit>=0?<CheckCircle2 size={24} className="text-emerald-500"/>:<AlertCircle size={24} className="text-rose-500"/>}</div></div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-400 uppercase">Net Profit / Loss:</span>
+                  <span className={cn("text-xl font-black px-3.5 py-1.5 rounded-xl bg-slate-800", netProfit>=0?"text-emerald-400":"text-rose-400")}>
+                    {fmtRp(netProfit)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <p className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                    Pemasukan Operasional
+                  </p>
+                  <div className="space-y-2.5 px-3 border-l-2 border-emerald-500/40">
+                    <ReportLine label="Penjualan Produk" value={transactions.filter(t=>['Penjualan','Sales'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                    <ReportLine label="Pelunasan Piutang" value={transactions.filter(t=>t.category==='Pelunasan Piutang').reduce((s,t)=>s+t.amount,0)} isDark/>
+                    <ReportLine label="Investasi & Lainnya" value={transactions.filter(t=>t.type==='Income'&&!['Penjualan','Sales','Pelunasan Piutang'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-black text-rose-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                    Beban Operasional
+                  </p>
+                  <div className="space-y-2.5 px-3 border-l-2 border-rose-500/40">
+                    <ReportLine label="Pembelian Bahan Baku" value={transactions.filter(t=>['Bahan Baku','Raw Materials','Pembelian'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                    <ReportLine label="Gaji Karyawan" value={transactions.filter(t=>['Salaries','Gaji'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                    <ReportLine label="Utilitas & Sewa" value={transactions.filter(t=>['Utilities','Rent','Utilitas','Sewa'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                    <ReportLine label="Beban Lain-lain" value={transactions.filter(t=>t.type==='Expense'&&!['Bahan Baku','Raw Materials','Pembelian','Salaries','Gaji','Utilities','Rent','Utilitas','Sewa'].includes(t.category)).reduce((s,t)=>s+t.amount,0)} isDark/>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Status Kesehatan Keuangan Banner */}
+            <div className="p-5 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-emerald-100 text-emerald-700 rounded-xl">
+                  {netProfit>=0?<CheckCircle2 size={24}/>:<AlertCircle size={24} className="text-rose-500"/>}
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-wider">Kesehatan Keuangan Sistem</p>
+                  <p className="text-sm font-bold text-emerald-950">
+                    Status: {netProfit>=0?'SANGAT BAIK (Laba Operasional Positif)':'PERLU PERHATIAN (Defisit Berjalan)'}
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 font-medium">
+                Konsolidasi otomatis dari penjualan, pembelian, stok & kas
+              </div>
             </div>
           </div>
         )}

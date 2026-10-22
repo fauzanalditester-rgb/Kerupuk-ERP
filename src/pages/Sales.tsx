@@ -28,6 +28,7 @@ export default function Sales() {
     productName: string;
     quantity: number;
     price: number;
+    originalPrice?: number;
     discount: number;
     unit: string;
     stock: number;
@@ -457,6 +458,7 @@ export default function Sales() {
           productName: item.name,
           quantity: 1,
           price: item.price,
+          originalPrice: item.price,
           discount: 0,
           unit: item.unit,
           stock: item.stock
@@ -524,6 +526,14 @@ export default function Sales() {
 
   const handlePosCheckout = (autoPrint: boolean = true) => {
     if (posCart.length === 0 || isPosSubmitting) return;
+
+    // Validasi harga manual Rp 0
+    const zeroPriceItem = posCart.find(i => i.price <= 0);
+    if (zeroPriceItem) {
+      const confirmZero = confirm(`Perhatian: Produk "${zeroPriceItem.productName}" memiliki harga Rp 0. Apakah Anda yakin ingin memproses transaksi ini dengan harga Rp 0?`);
+      if (!confirmZero) return;
+    }
+
     setIsPosSubmitting(true);
 
     try {
@@ -899,66 +909,92 @@ export default function Sales() {
                   <p className="text-[11px] text-slate-400">Pilih kerupuk atau pempek dari katalog di samping</p>
                 </div>
               ) : (
-                posCart.map(item => (
-                  <div key={item.productId} className="pt-2 first:pt-0 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight flex-1">
-                        {item.productName}
-                      </span>
-                      <button
-                        onClick={() => handlePosRemoveItem(item.productId)}
-                        className="text-slate-300 hover:text-rose-500 transition-colors p-1"
-                        title="Hapus Item"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      {/* Stepper Qty */}
-                      <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
+                posCart.map(item => {
+                  const isPriceModified = item.originalPrice !== undefined && item.price !== item.originalPrice;
+                  return (
+                    <div key={item.productId} className="pt-2.5 pb-1 first:pt-0 space-y-1.5 border-b border-slate-100 last:border-b-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span className="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight block truncate">
+                            {item.productName}
+                          </span>
+                          {isPriceModified && (
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[9px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 px-1 py-0.2 rounded">
+                                Harga Manual
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handlePosUpdatePrice(item.productId, item.originalPrice!)}
+                                className="text-[10px] text-slate-400 hover:text-emerald-600 underline"
+                                title="Kembalikan ke harga asli"
+                              >
+                                Reset (Rp {item.originalPrice?.toLocaleString('id-ID')})
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <button
-                          onClick={() => handlePosUpdateQty(item.productId, -1)}
-                          className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
-                          title="Kurangi 1"
+                          onClick={() => handlePosRemoveItem(item.productId)}
+                          className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                          title="Hapus Item"
                         >
-                          <Minus size={12} />
-                        </button>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          value={item.quantity}
-                          onChange={e => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
-                          className="w-12 text-center text-xs font-bold bg-transparent border-0 focus:outline-none"
-                        />
-                        <button
-                          onClick={() => handlePosUpdateQty(item.productId, 1)}
-                          className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
-                          title="Tambah 1"
-                        >
-                          <Plus size={12} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
 
-                      {/* Edit Harga Satuan Manual */}
-                      <div className="flex items-center gap-1" title="Harga Satuan (Bisa diubah)">
-                        <span className="text-[10px] text-slate-400 font-bold">@</span>
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={e => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                          className="w-20 px-1.5 py-0.5 text-right text-xs font-bold border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                        />
-                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        {/* Stepper Qty */}
+                        <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
+                          <button
+                            onClick={() => handlePosUpdateQty(item.productId, -1)}
+                            className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
+                            title="Kurangi 1"
+                          >
+                            <Minus size={12} />
+                          </button>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={item.quantity}
+                            onChange={e => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
+                            className="w-12 text-center text-xs font-bold bg-transparent border-0 focus:outline-none"
+                          />
+                          <button
+                            onClick={() => handlePosUpdateQty(item.productId, 1)}
+                            className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
+                            title="Tambah 1"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
 
-                      {/* Subtotal Baris */}
-                      <span className="font-black text-slate-900 text-xs sm:text-sm text-right shrink-0">
-                        Rp {Math.round(item.quantity * item.price).toLocaleString('id-ID')}
-                      </span>
+                        {/* Edit Harga Satuan Manual */}
+                        <div className="flex items-center gap-1" title="Harga Satuan (Bisa diubah manual untuk harga khusus / reseller)">
+                          <span className="text-[10px] text-slate-400 font-bold">@ Rp</span>
+                          <input
+                            type="number"
+                            value={item.price || ''}
+                            onChange={e => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                            placeholder="0"
+                            className={cn(
+                              "w-24 px-1.5 py-0.5 text-right text-xs font-black border rounded focus:outline-none focus:ring-1",
+                              isPriceModified
+                                ? "border-amber-400 bg-amber-50/60 text-amber-900 focus:ring-amber-500"
+                                : "border-slate-200 bg-white text-slate-900 focus:ring-emerald-500"
+                            )}
+                          />
+                        </div>
+
+                        {/* Subtotal Baris */}
+                        <span className="font-black text-slate-900 text-xs sm:text-sm text-right shrink-0">
+                          Rp {Math.round(item.quantity * item.price).toLocaleString('id-ID')}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 

@@ -35,7 +35,7 @@ export default function Sales() {
   }[]>([]);
   const [posSearchQuery, setPosSearchQuery] = useState('');
   const [posCategory, setPosCategory] = useState('all');
-  const [posCustomerName, setPosCustomerName] = useState('Pelanggan Umum');
+  const [posCustomerName, setPosCustomerName] = useState('');
   const [posCustomerPhone, setPosCustomerPhone] = useState('');
   const [posSalesPerson, setPosSalesPerson] = useState('Kasir');
   const [posPaymentMethod, setPaymentMethodPos] = useState<'Cash' | 'Transfer' | 'Debt'>('Cash');
@@ -521,7 +521,8 @@ export default function Sales() {
 
   const posChange = useMemo(() => {
     if (posPaymentMethod !== 'Cash') return 0;
-    return Math.max(0, posCashReceived - posGrandTotal);
+    const received = posCashReceived > 0 ? posCashReceived : posGrandTotal;
+    return Math.max(0, received - posGrandTotal);
   }, [posPaymentMethod, posCashReceived, posGrandTotal]);
 
   const handlePosCheckout = (autoPrint: boolean = true) => {
@@ -605,7 +606,7 @@ export default function Sales() {
       setPosCart([]);
       setPosCashReceived(0);
       setPosDiscount(0);
-      setPosCustomerName('Pelanggan Umum');
+      setPosCustomerName('');
       setPosCustomerPhone('');
       setEditingSO(null);
 
@@ -668,7 +669,7 @@ export default function Sales() {
           <button
             onClick={() => {
               setEditingSO(null);
-              setPosCustomerName('Pelanggan Umum');
+              setPosCustomerName('');
               setPosCustomerPhone('');
               setPosSalesPerson('Kasir');
               setPosCart([]);
@@ -685,7 +686,7 @@ export default function Sales() {
             className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95 font-bold"
           >
             <Plus size={20} />
-            Buat Pesanan (Mode Kasir)
+            Buat Pesanan
           </button>
         </div>
       </div>
@@ -1551,7 +1552,7 @@ export default function Sales() {
           setIsModalOpen(false);
           setEditingSO(null);
         }} 
-        title={editingSO ? `Edit Pesanan: ${editingSO.id} (Mode Kasir)` : "Buat Pesanan Penjualan Baru (Mode Kasir / POS)"}
+        title={editingSO ? `Edit Pesanan: ${editingSO.id}` : "Buat Pesanan Penjualan Baru"}
         size="full"
       >
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[620px] max-h-[82vh] overflow-hidden">
@@ -1601,7 +1602,6 @@ export default function Sales() {
             <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 content-start custom-scrollbar">
               {posProducts.map(product => {
                 const cartItem = posCart.find(i => i.productId === product.id);
-                const isOutOfStock = product.stock <= 0;
 
                 return (
                   <div
@@ -1625,12 +1625,6 @@ export default function Sales() {
                       <div className="flex items-center justify-between gap-1 mb-1.5">
                         <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 truncate max-w-[100px]">
                           {product.category}
-                        </span>
-                        <span className={cn(
-                          "text-[10px] font-black px-1.5 py-0.5 rounded",
-                          isOutOfStock ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-600"
-                        )}>
-                          Stok: {product.stock} {product.unit}
                         </span>
                       </div>
                       <h4 className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors">
@@ -1682,7 +1676,7 @@ export default function Sales() {
                     type="text"
                     value={posCustomerName}
                     onChange={(e) => setPosCustomerName(e.target.value)}
-                    placeholder="Nama Pelanggan"
+                    placeholder="Nama Pelanggan (opsional)"
                     list="pos-customers-datalist"
                     className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
@@ -1764,21 +1758,26 @@ export default function Sales() {
                         </button>
                       </div>
 
-                      {/* Manual Price Override */}
-                      <div className="flex items-center justify-between gap-2 bg-white px-2 py-1.5 rounded-lg border border-slate-200/80">
-                        <div className="flex items-center gap-1 min-w-0">
-                          <span className="text-[10px] font-bold text-slate-400">@ Rp</span>
+                      {/* Manual Price Override (Kebutuhan No. 3: Input Harga Manual) */}
+                      <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/90">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">@ Rp</span>
                           <input
                             type="number"
                             min="0"
                             step="any"
                             value={item.price}
                             onChange={(e) => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                            className="w-20 px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                            className={cn(
+                              "w-24 px-1.5 py-0.5 rounded text-xs font-black outline-none transition-all",
+                              isPriceModified 
+                                ? "bg-amber-50 text-amber-900 border border-amber-300 focus:ring-1 focus:ring-amber-500" 
+                                : "bg-slate-50 text-slate-800 border border-slate-200 focus:ring-1 focus:ring-emerald-500"
+                            )}
                           />
                           {isPriceModified && (
-                            <span className="text-[9px] font-extrabold px-1 py-0.5 bg-amber-100 text-amber-800 rounded">
-                              Ubah
+                            <span className="text-[9px] font-black px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
+                              Harga Manual
                             </span>
                           )}
                         </div>
@@ -1786,8 +1785,10 @@ export default function Sales() {
                           <button
                             type="button"
                             onClick={() => handlePosUpdatePrice(item.productId, item.originalPrice || 0)}
-                            className="text-[9px] font-bold text-slate-500 hover:text-slate-800 underline"
+                            className="text-[9px] font-bold text-slate-500 hover:text-emerald-700 underline flex items-center gap-0.5 whitespace-nowrap"
+                            title="Kembalikan ke harga master"
                           >
+                            <RotateCcw size={10} />
                             Reset
                           </button>
                         )}
@@ -1889,9 +1890,12 @@ export default function Sales() {
                       <input
                         type="number"
                         min="0"
-                        value={posCashReceived || ''}
-                        placeholder={posGrandTotal.toString()}
-                        onChange={(e) => setPosCashReceived(parseFloat(e.target.value) || 0)}
+                        value={posCashReceived > 0 ? posCashReceived : (posGrandTotal > 0 ? posGrandTotal : '')}
+                        placeholder={posGrandTotal > 0 ? posGrandTotal.toString() : "Uang Pas"}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value);
+                          setPosCashReceived(isNaN(val) ? 0 : val);
+                        }}
                         className="w-28 px-2 py-1 bg-white border border-emerald-300 rounded text-xs font-black text-right text-slate-800 focus:outline-none"
                       />
                     </div>
@@ -1901,7 +1905,12 @@ export default function Sales() {
                     <button
                       type="button"
                       onClick={() => setPosCashReceived(posGrandTotal)}
-                      className="px-2 py-0.5 bg-white border border-emerald-200 rounded text-[10px] font-bold text-emerald-700 hover:bg-emerald-100 whitespace-nowrap"
+                      className={cn(
+                        "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
+                        (posCashReceived === 0 || posCashReceived === posGrandTotal)
+                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                          : "bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                      )}
                     >
                       Uang Pas
                     </button>
@@ -1910,7 +1919,12 @@ export default function Sales() {
                         key={val}
                         type="button"
                         onClick={() => setPosCashReceived(val)}
-                        className="px-2 py-0.5 bg-white border border-slate-200 rounded text-[10px] font-bold text-slate-600 hover:bg-slate-100 whitespace-nowrap"
+                        className={cn(
+                          "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
+                          posCashReceived === val
+                            ? "bg-slate-800 text-white border-slate-800 shadow-xs"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                        )}
                       >
                         {(val / 1000)}k
                       </button>

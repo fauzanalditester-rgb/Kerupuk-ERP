@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { TrendingUp, Plus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, Tag, Edit2, Save, Printer, MapPin, AlertCircle, Trash2, Receipt, MessageSquare } from 'lucide-react';
+import { TrendingUp, Plus, Minus, Filter, Search, CheckCircle, X, Eye, ArrowUpDown, Package, ShoppingBag, ShoppingCart, Tag, Edit2, Save, Printer, MapPin, AlertCircle, Trash2, Receipt, MessageSquare, CreditCard, Banknote, RotateCcw, Check, User, Clock } from 'lucide-react';
 import { useERP } from '../context/ERPContext';
 import Modal from '../components/Modal';
 import { SalesOrder, InventoryItem } from '../lib/types';
@@ -20,7 +20,30 @@ export default function Sales() {
     updateCustomer,
     employees
   } = useERP();
-  const [activeTab, setActiveTab] = useState<'orders' | 'pricelist'>('orders');
+  const [activeTab, setActiveTab] = useState<'pos' | 'orders' | 'pricelist'>('pos');
+
+  // POS (Point of Sale / Kasir) State
+  const [posCart, setPosCart] = useState<{
+    productId: string;
+    productName: string;
+    quantity: number;
+    price: number;
+    discount: number;
+    unit: string;
+    stock: number;
+  }[]>([]);
+  const [posSearchQuery, setPosSearchQuery] = useState('');
+  const [posCategory, setPosCategory] = useState('all');
+  const [posCustomerName, setPosCustomerName] = useState('Pelanggan Umum');
+  const [posCustomerPhone, setPosCustomerPhone] = useState('');
+  const [posSalesPerson, setPosSalesPerson] = useState('Kasir');
+  const [posPaymentMethod, setPaymentMethodPos] = useState<'Cash' | 'Transfer' | 'Debt'>('Cash');
+  const [posCashReceived, setPosCashReceived] = useState<number>(0);
+  const [posDiscount, setPosDiscount] = useState<number>(0);
+  const [posPrintType, setPosPrintType] = useState<'Thermal' | 'Thermal80'>('Thermal');
+  const [posSuccessMsg, setPosSuccessMsg] = useState<string | null>(null);
+  const [isPosSubmitting, setIsPosSubmitting] = useState(false);
+  const [isCartOpenMobile, setIsCartOpenMobile] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -401,9 +424,156 @@ export default function Sales() {
     setTempPrice(currentPrice);
   };
 
-  const handleSavePrice = (id: string) => {
-    updateInventoryItem(id, { price: tempPrice });
-    setEditingId(null);
+  // POS Handlers & Calculations
+  const posProducts = useMemo(() => {
+    return inventory
+      .filter(item => item.type === 'finished' || item.category === 'Kerupuk' || item.category === 'Pempek')
+      .filter(item => {
+        const matchesQuery = item.name.toLowerCase().includes(posSearchQuery.toLowerCase()) ||
+          item.category.toLowerCase().includes(posSearchQuery.toLowerCase());
+        const matchesCat = posCategory === 'all' || item.category === posCategory;
+        return matchesQuery && matchesCat;
+      });
+  }, [inventory, posSearchQuery, posCategory]);
+
+  const posCategories = useMemo(() => {
+    const cats = new Set<string>();
+    inventory
+      .filter(item => item.type === 'finished' || item.category === 'Kerupuk' || item.category === 'Pempek')
+      .forEach(i => cats.add(i.category));
+    return ['all', ...Array.from(cats)];
+  }, [inventory]);
+
+  const handlePosAddToCart = (item: InventoryItem) => {
+    setPosCart(prev => {
+      const existingIndex = prev.findIndex(p => p.productId === item.id);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex].quantity = Number((updated[existingIndex].quantity + 1).toFixed(3));
+        return updated;
+      } else {
+        return [...prev, {
+          productId: item.id,
+          productName: item.name,
+          quantity: 1,
+          price: item.price,
+          discount: 0,
+          unit: item.unit,
+          stock: item.stock
+        }];
+      }
+    });
+  };
+
+  const handlePosUpdateQty = (productId: string, delta: number) => {
+    setPosCart(prev => {
+      return prev
+        .map(item => {
+          if (item.productId === productId) {
+            const newQty = Number((item.quantity + delta).toFixed(3));
+            return newQty > 0 ? { ...item, quantity: newQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean) as typeof prev;
+    });
+  };
+
+  const handlePosSetQty = (productId: string, qty: number) => {
+    if (qty <= 0) {
+      setPosCart(prev => prev.filter(item => item.productId !== productId));
+    } else {
+      setPosCart(prev => prev.map(item => item.productId === productId ? { ...item, quantity: Number(qty.toFixed(3)) } : item));
+    }
+  };
+
+  const handlePosUpdatePrice = (productId: string, newPrice: number) => {
+    setPosCart(prev => prev.map(item => item.productId === productId ? { ...item, price: Math.max(0, newPrice) } : item));
+  };
+
+  const handlePosRemoveItem = (productId: string) => {
+    setPosCart(prev => prev.filter(item => item.productId !== productId));
+  };
+
+  const handlePosClearCart = () => {
+    setPosCart([]);
+    setPosCashReceived(0);
+    setPosDiscount(0);
+  };
+
+  const posSubtotal = useMemo(() => {
+    return posCart.reduce((sum, item) => {
+      const itemTotal = item.quantity * item.price;
+      const itemDisc = (itemTotal * (item.discount || 0)) / 100;
+      return sum + (itemTotal - itemDisc);
+    }, 0);
+  }, [posCart]);
+
+  const posDiscountAmount = useMemo(() => {
+    return Math.round((posSubtotal * posDiscount) / 100);
+  }, [posSubtotal, posDiscount]);
+
+  const posGrandTotal = useMemo(() => {
+    return Math.max(0, Math.round(posSubtotal - posDiscountAmount));
+  }, [posSubtotal, posDiscountAmount]);
+
+  const posChange = useMemo(() => {
+    if (posPaymentMethod !== 'Cash') return 0;
+    return Math.max(0, posCashReceived - posGrandTotal);
+  }, [posPaymentMethod, posCashReceived, posGrandTotal]);
+
+  const handlePosCheckout = (autoPrint: boolean = true) => {
+    if (posCart.length === 0 || isPosSubmitting) return;
+    setIsPosSubmitting(true);
+
+    try {
+      const now = new Date();
+      const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      const dateWithTime = `${now.toISOString().split('T')[0]} ${timeStr}`;
+
+      const newSO: SalesOrder = {
+        id: `SO-${Date.now()}`,
+        customerName: posCustomerName.trim() || 'Pelanggan Umum',
+        customerPhone: posCustomerPhone.trim() || undefined,
+        salesName: posSalesPerson.trim() || 'Kasir',
+        date: dateWithTime,
+        items: posCart.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: Math.round(item.price),
+          discount: item.discount
+        })),
+        totalAmount: posGrandTotal,
+        discount: posDiscount,
+        paymentMethod: posPaymentMethod,
+        status: 'Completed',
+        dueDate: posPaymentMethod === 'Debt' ? dueDate : undefined,
+        isPaid: posPaymentMethod !== 'Debt'
+      };
+
+      createSalesOrder(newSO);
+      completeSalesOrder(newSO.id, newSO);
+
+      if (autoPrint) {
+        handlePrintInvoice(newSO, posPrintType);
+      }
+
+      setPosCart([]);
+      setPosCashReceived(0);
+      setPosDiscount(0);
+      setPosCustomerName('Pelanggan Umum');
+      setPosCustomerPhone('');
+
+      setPosSuccessMsg(`Transaksi ${newSO.id} berhasil disimpan! Total: Rp ${posGrandTotal.toLocaleString('id-ID')}`);
+      setTimeout(() => {
+        setPosSuccessMsg(null);
+      }, 5000);
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat memproses transaksi kasir.');
+    } finally {
+      setIsPosSubmitting(false);
+    }
   };
 
   const handleExport = () => {
@@ -475,28 +645,493 @@ export default function Sales() {
       {/* TABS */}
       <div className="flex border-b border-slate-200">
         <button
+          onClick={() => { setActiveTab('pos'); }}
+          className={cn(
+            "px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2",
+            activeTab === 'pos' ? "text-emerald-600" : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          <ShoppingBag size={18} />
+          <span>Mode Kasir (POS)</span>
+          {activeTab === 'pos' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600" />}
+        </button>
+        <button
           onClick={() => { setActiveTab('orders'); setSearchQuery(''); }}
           className={cn(
-            "px-6 py-3 text-sm font-medium transition-colors relative",
+            "px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2",
             activeTab === 'orders' ? "text-emerald-600" : "text-slate-500 hover:text-slate-700"
           )}
         >
-          Daftar Pesanan
+          <Receipt size={18} />
+          <span>Daftar Pesanan</span>
           {activeTab === 'orders' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600" />}
         </button>
         <button
           onClick={() => { setActiveTab('pricelist'); setSearchQuery(''); }}
           className={cn(
-            "px-6 py-3 text-sm font-medium transition-colors relative",
+            "px-6 py-3 text-sm font-bold transition-all relative flex items-center gap-2",
             activeTab === 'pricelist' ? "text-emerald-600" : "text-slate-500 hover:text-slate-700"
           )}
         >
-          Daftar Harga (Pricelist)
+          <Tag size={18} />
+          <span>Daftar Harga</span>
           {activeTab === 'pricelist' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-600" />}
         </button>
       </div>
 
-      {activeTab === 'orders' ? (
+      {activeTab === 'pos' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* KATALOG PRODUK KASIR */}
+          <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+            {/* Toolbar Filter & Pencarian */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div className="relative flex-1 w-full">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Cari kerupuk, kancing, mawar, getas..."
+                    value={posSearchQuery}
+                    onChange={e => setPosSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all font-medium text-slate-800"
+                  />
+                  {posSearchQuery && (
+                    <button
+                      onClick={() => setPosSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs font-semibold text-slate-500 whitespace-nowrap bg-slate-100 px-3 py-2 rounded-xl">
+                  {posProducts.length} Produk Siap Jual
+                </div>
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {posCategories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setPosCategory(cat)}
+                    className={cn(
+                      "px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all",
+                      posCategory === cat
+                        ? "bg-emerald-600 text-white shadow-sm shadow-emerald-200"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200/80"
+                    )}
+                  >
+                    {cat === 'all' ? 'Semua Produk' : cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Notifikasi Transaksi Sukses */}
+            {posSuccessMsg && (
+              <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center justify-between shadow-sm animate-in fade-in">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-emerald-500 text-white rounded-xl">
+                    <Check size={18} />
+                  </div>
+                  <span className="text-sm font-bold">{posSuccessMsg}</span>
+                </div>
+                <button
+                  onClick={() => setPosSuccessMsg(null)}
+                  className="p-1 text-emerald-600 hover:text-emerald-800"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* Grid Kartu Produk */}
+            {posProducts.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center text-slate-400">
+                <Package size={48} className="mx-auto mb-3 opacity-40 text-slate-400" />
+                <p className="font-bold text-slate-600 text-base">Tidak ada produk ditemukan</p>
+                <p className="text-xs text-slate-400 mt-1">Coba gunakan kata kunci lain atau pilih Semua Kategori.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                {posProducts.map(item => {
+                  const inCart = posCart.find(p => p.productId === item.id);
+                  const isLowStock = item.stock <= 5 && item.stock > 0;
+                  const isOutOfStock = item.stock <= 0;
+
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => handlePosAddToCart(item)}
+                      className={cn(
+                        "group relative bg-white rounded-2xl border p-4 text-left cursor-pointer transition-all duration-200 select-none flex flex-col justify-between",
+                        inCart
+                          ? "border-emerald-500 ring-2 ring-emerald-500/20 shadow-md bg-emerald-50/10"
+                          : "border-slate-200/80 hover:border-emerald-400 hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]"
+                      )}
+                    >
+                      {/* Header Kartu: Kategori & Status Stok */}
+                      <div className="flex items-start justify-between gap-1 mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md truncate max-w-[90px]">
+                          {item.category}
+                        </span>
+                        <span
+                          className={cn(
+                            "text-[10px] font-black px-2 py-0.5 rounded-full shrink-0",
+                            isOutOfStock
+                              ? "bg-rose-100 text-rose-700"
+                              : isLowStock
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-emerald-100 text-emerald-800"
+                          )}
+                        >
+                          {isOutOfStock ? 'Stok 0' : `${Number(item.stock.toFixed(2))} ${item.unit}`}
+                        </span>
+                      </div>
+
+                      {/* Nama Produk */}
+                      <div className="my-1">
+                        <h3 className="font-extrabold text-slate-900 group-hover:text-emerald-600 transition-colors text-sm sm:text-base leading-snug line-clamp-2">
+                          {item.name}
+                        </h3>
+                      </div>
+
+                      {/* Footer Kartu: Harga & Tombol Tambah */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-semibold text-slate-400 block">Harga</span>
+                          <span className="font-black text-slate-900 text-sm sm:text-base text-emerald-600">
+                            Rp {item.price.toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                        <div
+                          className={cn(
+                            "w-8 h-8 rounded-xl flex items-center justify-center transition-all",
+                            inCart
+                              ? "bg-emerald-600 text-white font-bold text-xs shadow-sm"
+                              : "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white"
+                          )}
+                        >
+                          {inCart ? `${inCart.quantity}` : <Plus size={16} />}
+                        </div>
+                      </div>
+
+                      {/* Badge Jumlah di Keranjang */}
+                      {inCart && (
+                        <div className="absolute -top-2 -right-2 bg-emerald-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-in zoom-in-50">
+                          {inCart.quantity}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* SISI KANAN: PANEL KERANJANG KASIR & CHECKOUT */}
+          <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 lg:sticky lg:top-4 space-y-4">
+            {/* Header Keranjang */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <ShoppingCart size={20} />
+                </div>
+                <div>
+                  <h2 className="font-black text-slate-900 text-base leading-tight">Keranjang Kasir</h2>
+                  <p className="text-xs text-slate-400 font-medium">{posCart.length} jenis item pesanan</p>
+                </div>
+              </div>
+              {posCart.length > 0 && (
+                <button
+                  onClick={handlePosClearCart}
+                  className="text-xs font-bold text-rose-500 hover:text-rose-700 flex items-center gap-1 hover:bg-rose-50 px-2.5 py-1.5 rounded-lg transition-colors"
+                >
+                  <RotateCcw size={12} />
+                  Reset
+                </button>
+              )}
+            </div>
+
+            {/* Data Pelanggan & Sales */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-xs">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">Pelanggan</label>
+                <input
+                  type="text"
+                  list="pos-customers-list"
+                  placeholder="Pelanggan Umum"
+                  value={posCustomerName}
+                  onChange={e => setPosCustomerName(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-800"
+                />
+                <datalist id="pos-customers-list">
+                  {customers.map(c => (
+                    <option key={c.id} value={c.name} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 block mb-1">Kasir / Sales</label>
+                <input
+                  type="text"
+                  list="pos-sales-list"
+                  placeholder="Kasir"
+                  value={posSalesPerson}
+                  onChange={e => setPosSalesPerson(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold text-slate-800"
+                />
+                <datalist id="pos-sales-list">
+                  {availableSalesNames.map(name => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </div>
+            </div>
+
+            {/* Daftar Item dalam Keranjang */}
+            <div className="max-h-60 sm:max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-100">
+              {posCart.length === 0 ? (
+                <div className="py-10 text-center text-slate-400 space-y-2">
+                  <ShoppingBag size={32} className="mx-auto opacity-30 text-slate-400" />
+                  <p className="text-xs font-semibold">Keranjang kasir masih kosong</p>
+                  <p className="text-[11px] text-slate-400">Pilih kerupuk atau pempek dari katalog di samping</p>
+                </div>
+              ) : (
+                posCart.map(item => (
+                  <div key={item.productId} className="pt-2 first:pt-0 space-y-1.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-extrabold text-slate-900 text-xs sm:text-sm leading-tight flex-1">
+                        {item.productName}
+                      </span>
+                      <button
+                        onClick={() => handlePosRemoveItem(item.productId)}
+                        className="text-slate-300 hover:text-rose-500 transition-colors p-1"
+                        title="Hapus Item"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      {/* Stepper Qty */}
+                      <div className="flex items-center border border-slate-200 rounded-lg bg-slate-50 overflow-hidden">
+                        <button
+                          onClick={() => handlePosUpdateQty(item.productId, -1)}
+                          className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
+                          title="Kurangi 1"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={item.quantity}
+                          onChange={e => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
+                          className="w-12 text-center text-xs font-bold bg-transparent border-0 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => handlePosUpdateQty(item.productId, 1)}
+                          className="p-1 px-2 text-slate-600 hover:bg-slate-200 transition-colors font-bold"
+                          title="Tambah 1"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+
+                      {/* Edit Harga Satuan Manual */}
+                      <div className="flex items-center gap-1" title="Harga Satuan (Bisa diubah)">
+                        <span className="text-[10px] text-slate-400 font-bold">@</span>
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={e => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                          className="w-20 px-1.5 py-0.5 text-right text-xs font-bold border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                        />
+                      </div>
+
+                      {/* Subtotal Baris */}
+                      <span className="font-black text-slate-900 text-xs sm:text-sm text-right shrink-0">
+                        Rp {Math.round(item.quantity * item.price).toLocaleString('id-ID')}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Rincian Total */}
+            <div className="pt-3 border-t border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600 font-medium">
+                <span>Subtotal Barang:</span>
+                <span className="font-bold text-slate-800">Rp {posSubtotal.toLocaleString('id-ID')}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-600">
+                <span>Diskon Transaksi (%):</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={posDiscount || ''}
+                  placeholder="0"
+                  onChange={e => setPosDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                  className="w-16 px-2 py-0.5 text-right font-bold border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-emerald-500 text-xs"
+                />
+              </div>
+              <div className="flex justify-between items-baseline pt-2 border-t border-slate-100">
+                <span className="font-extrabold text-slate-900 text-sm">TOTAL BAYAR:</span>
+                <span className="font-black text-xl text-emerald-600">
+                  Rp {posGrandTotal.toLocaleString('id-ID')}
+                </span>
+              </div>
+            </div>
+
+            {/* Pilihan Metode Bayar */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Metode Pembayaran
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {(['Cash', 'Transfer', 'Debt'] as const).map(method => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => setPaymentMethodPos(method)}
+                    className={cn(
+                      "py-2 rounded-xl text-xs font-bold transition-all border",
+                      posPaymentMethod === method
+                        ? "bg-emerald-600 border-emerald-600 text-white shadow-sm"
+                        : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    {method === 'Cash' ? 'Tunai' : method === 'Transfer' ? 'Transfer' : 'Tempo (Utang)'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Fitur Tunai: Nominal & Kembalian */}
+              {posPaymentMethod === 'Cash' && (
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 space-y-2 mt-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-600">Uang Diterima:</span>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Rp</span>
+                      <input
+                        type="number"
+                        value={posCashReceived || ''}
+                        placeholder="0"
+                        onChange={e => setPosCashReceived(parseFloat(e.target.value) || 0)}
+                        className="w-32 pl-8 pr-2 py-1 bg-white border border-slate-200 rounded-lg text-right font-black text-slate-900 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Tombol Cepat Uang */}
+                  <div className="flex gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => setPosCashReceived(posGrandTotal)}
+                      className="px-2 py-1 bg-white border border-slate-200 hover:border-emerald-500 text-[10px] font-bold rounded-md transition-colors"
+                    >
+                      Uang Pas
+                    </button>
+                    {[20000, 50000, 100000, 200000, 500000].filter(n => n >= posGrandTotal || n === 50000 || n === 100000).map(amount => (
+                      <button
+                        key={amount}
+                        type="button"
+                        onClick={() => setPosCashReceived(amount)}
+                        className="px-2 py-1 bg-white border border-slate-200 hover:border-emerald-500 text-[10px] font-bold rounded-md transition-colors"
+                      >
+                        {(amount / 1000)}rb
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Uang Kembalian */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 text-xs">
+                    <span className="font-bold text-slate-500">Kembalian:</span>
+                    <span
+                      className={cn(
+                        "font-black text-sm",
+                        posCashReceived < posGrandTotal && posCashReceived > 0
+                          ? "text-rose-500"
+                          : "text-emerald-700"
+                      )}
+                    >
+                      {posCashReceived < posGrandTotal && posCashReceived > 0
+                        ? `Kurang Rp ${(posGrandTotal - posCashReceived).toLocaleString('id-ID')}`
+                        : `Rp ${posChange.toLocaleString('id-ID')}`}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Pilihan Ukuran Printer Thermal */}
+            <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+              <span className="font-semibold">Ukuran Struk:</span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setPosPrintType('Thermal')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                    posPrintType === 'Thermal'
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  )}
+                >
+                  Blueprint ECO 58
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosPrintType('Thermal80')}
+                  className={cn(
+                    "px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-colors",
+                    posPrintType === 'Thermal80'
+                      ? "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  )}
+                >
+                  Blueprint ECO 80
+                </button>
+              </div>
+            </div>
+
+            {/* Tombol Checkout */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                disabled={posCart.length === 0 || isPosSubmitting}
+                onClick={() => handlePosCheckout(true)}
+                className={cn(
+                  "w-full py-3.5 rounded-xl text-white font-black flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]",
+                  posCart.length === 0 || isPosSubmitting
+                    ? "bg-slate-300 cursor-not-allowed shadow-none"
+                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200 text-base"
+                )}
+              >
+                <Printer size={18} />
+                <span>Bayar & Cetak Struk</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={posCart.length === 0 || isPosSubmitting}
+                onClick={() => handlePosCheckout(false)}
+                className={cn(
+                  "w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors",
+                  (posCart.length === 0 || isPosSubmitting) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                Simpan Transaksi Saja (Tanpa Struk)
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'orders' ? (
         <>
           {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

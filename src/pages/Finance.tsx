@@ -428,9 +428,6 @@ export default function Finance() {
               return (
                 <div key={so.id} className="w-full bg-white border border-rose-100 hover:border-rose-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase rounded-lg shrink-0">
-                      Piutang Pelanggan
-                    </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-black text-slate-800 truncate">{so.customerName}</span>
@@ -480,9 +477,6 @@ export default function Finance() {
               return (
                 <div key={po.id} className="w-full bg-white border border-rose-100 hover:border-rose-300 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs transition-all">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="px-2 py-1 bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-black uppercase rounded-lg shrink-0">
-                      Hutang Supplier
-                    </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-black text-slate-800 truncate">{po.supplierName}</span>

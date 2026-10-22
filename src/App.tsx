@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Inventory from './pages/Inventory';
@@ -13,16 +13,18 @@ import HR from './pages/HR';
 import Settings from './pages/Settings';
 import Home from './pages/Home';
 import Login from './pages/Login';
-import { ERPProvider, useERP } from './context/ERPContext';
+import { ERPProvider } from './context/ERPContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
-  const { isLoading: erpLoading } = useERP();
-  const location = useLocation();
 
-  if (!user && !authLoading && !erpLoading) {
-    return <Navigate to="/" replace />;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
   }
 
   if (!user) {
@@ -34,9 +36,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function RootElement() {
   const { user, isLoading: authLoading } = useAuth();
-  const { isLoading: erpLoading } = useERP();
 
-  // Loading states removed as per user request
+  // Prevent flashing landing page (Home) while verifying auth session on refresh
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return user ? <Layout /> : <Home />;
 }

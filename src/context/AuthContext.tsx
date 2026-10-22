@@ -20,9 +20,43 @@ export const useAuth = () => {
     return context;
 };
 
+const getInitialAuth = (): { user: User | null; hasSessionToken: boolean } => {
+    try {
+        if (typeof window === 'undefined' || !window.localStorage) {
+            return { user: null, hasSessionToken: false };
+        }
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                const item = localStorage.getItem(key);
+                if (item) {
+                    const parsed = JSON.parse(item);
+                    const sessionUser = parsed?.user || parsed?.currentSession?.user;
+                    if (sessionUser && sessionUser.id) {
+                        return {
+                            user: {
+                                id: sessionUser.id,
+                                username: sessionUser.email?.split('@')[0] || 'user',
+                                name: sessionUser.user_metadata?.name || 'User',
+                                role: (sessionUser.user_metadata?.role as 'admin' | 'staff') || 'admin'
+                            },
+                            hasSessionToken: true
+                        };
+                    }
+                    return { user: null, hasSessionToken: true };
+                }
+            }
+        }
+    } catch (e) {
+        // ignore parse/storage errors
+    }
+    return { user: null, hasSessionToken: false };
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const initialAuth = React.useMemo(() => getInitialAuth(), []);
+    const [user, setUser] = useState<User | null>(initialAuth.user);
+    const [isLoading, setIsLoading] = useState<boolean>(!initialAuth.user && initialAuth.hasSessionToken);
 
     useEffect(() => {
         // Check active sessions and sets the user
@@ -35,6 +69,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     name: session.user.user_metadata?.name || 'User',
                     role: session.user.user_metadata?.role || 'admin'
                 });
+            } else {
+                setUser(null);
             }
             setIsLoading(false);
         };

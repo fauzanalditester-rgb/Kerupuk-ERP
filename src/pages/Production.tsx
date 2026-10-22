@@ -777,16 +777,7 @@ export default function Production() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-sm font-medium text-slate-700 font-bold uppercase tracking-tight">Pilih Produk</label>
-              <button
-                type="button"
-                onClick={() => navigate('/recipes')}
-                className="text-[10px] font-black text-blue-600 hover:text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full uppercase"
-              >
-                + Register di Master Resep
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-slate-700 font-bold uppercase tracking-tight mb-1">Pilih Produk</label>
 
             <div className="flex gap-2 items-center">
               <select
@@ -1035,11 +1026,7 @@ export default function Production() {
 
 
 
-          {/* Kebutuhan No. 7: Pemotongan stok saat memasak */}
-          <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-xs text-emerald-800 flex items-center gap-2">
-            <CheckCircle size={16} className="text-emerald-600 flex-shrink-0" />
-            <span>Saat disimpan, seluruh bahan baku di atas akan <strong>otomatis terpotong</strong> dari stok inventaris dan hasil produksi masuk ke stok barang jadi.</span>
-          </div>
+
 
           <div className="pt-2 flex gap-3">
             <button

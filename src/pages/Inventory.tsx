@@ -25,7 +25,7 @@ export default function Inventory() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [usageAmount, setUsageAmount] = useState<number | string>('');
-  const [usageReason, setUsageReason] = useState<string>('Pemakaian Operasional');
+  const [usageReason, setUsageReason] = useState<string>('');
   const [selectedUsageItemId, setSelectedUsageItemId] = useState<string>('');
   const [usageUnit, setUsageUnit] = useState<Unit>('kg');
 
@@ -187,7 +187,7 @@ export default function Inventory() {
 
       setIsUsageModalOpen(false);
       setUsageAmount('');
-      setUsageReason('Pemakaian Operasional');
+      setUsageReason('');
       setSelectedUsageItemId('');
     }
   };
@@ -261,7 +261,7 @@ export default function Inventory() {
               setSelectedItem(null);
               setUsageAmount('');
               setUsageUnit('kg');
-              setUsageReason('Barang Reject / Gagal Produksi');
+              setUsageReason('');
               setSelectedUsageItemId('');
               setIsUsageModalOpen(true);
             }}
@@ -271,20 +271,22 @@ export default function Inventory() {
             <AlertTriangle size={18} className="text-rose-600" />
             Catat Reject / Rusak
           </button>
-          <button
-            onClick={() => {
-              setNewItem({
-                category: activeTab === 'raw' ? 'Bahan Baku' : activeTab === 'finished' ? 'Kerupuk' : 'Operasional',
-                unit: activeTab === 'supply' ? 'tabung' : 'kg',
-                type: activeTab === 'supply' ? 'supply' : activeTab
-              });
-              setIsModalOpen(true);
-            }}
-            className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm font-bold text-sm"
-          >
-            <Plus size={18} />
-            {activeTab === 'finished' ? 'Tambah Produk Baru' : activeTab === 'raw' ? 'Tambah Bahan Baku' : 'Tambah Barang'}
-          </button>
+          {activeTab === 'finished' && (
+            <button
+              onClick={() => {
+                setNewItem({
+                  category: 'Kerupuk',
+                  unit: 'kg',
+                  type: 'finished'
+                });
+                setIsModalOpen(true);
+              }}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg flex items-center gap-2 hover:bg-emerald-700 transition-colors shadow-sm font-bold text-sm"
+            >
+              <Plus size={18} />
+              Tambah Produk Baru
+            </button>
+          )}
           <div className="relative">
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
@@ -1131,36 +1133,10 @@ export default function Inventory() {
               type="text"
               required
               className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-semibold"
-              placeholder="Contoh: Barang Reject / Rusak"
+              placeholder=""
               value={usageReason}
               onChange={e => setUsageReason(e.target.value)}
             />
-            {/* Quick Reason Presets (Kebutuhan No. 8: Barang Reject) */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {[
-                'Barang Reject / Gagal Produksi',
-                'Barang Rusak / Pecah',
-                'Kadaluarsa / Basi',
-                'Pemakaian Masak',
-                'Pemakaian Operasional'
-              ].map(reason => (
-                <button
-                  key={reason}
-                  type="button"
-                  onClick={() => setUsageReason(reason)}
-                  className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-bold transition-all border",
-                    usageReason === reason
-                      ? reason.includes('Reject') || reason.includes('Rusak')
-                        ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
-                        : "bg-slate-900 text-white border-slate-900 shadow-2xs"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                  )}
-                >
-                  {reason}
-                </button>
-              ))}
-            </div>
           </div>
           <div className="pt-2 flex gap-3">
             <button

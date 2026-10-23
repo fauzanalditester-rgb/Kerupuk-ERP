@@ -589,13 +589,15 @@ export default function Sales() {
     try {
       const now = new Date();
       const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
-      const dateWithTime = `${now.toISOString().split('T')[0]} ${timeStr}`;
+      const chosenDate = soDate || now.toISOString().split('T')[0];
+      const dateWithTime = chosenDate.includes(' ') ? chosenDate : `${chosenDate} ${timeStr}`;
 
       if (editingSO) {
         updateSalesOrder(editingSO.id, {
           customerName: posCustomerName.trim() || 'Pelanggan Umum',
           customerPhone: posCustomerPhone.trim() || undefined,
           salesName: posSalesPerson.trim() || 'Kito Nian',
+          date: dateWithTime,
           items: posCart.map(item => ({
             productId: item.productId,
             quantity: item.quantity,
@@ -659,6 +661,7 @@ export default function Sales() {
       setPosDiscount(0);
       setPosCustomerName('');
       setPosCustomerPhone('');
+      setSoDate(new Date().toISOString().split('T')[0]);
       setEditingSO(null);
 
       setTimeout(() => {
@@ -732,6 +735,7 @@ export default function Sales() {
                 d.setDate(d.getDate() + 7);
                 return d.toISOString().split('T')[0];
               });
+              setSoDate(new Date().toISOString().split('T')[0]);
               setIsModalOpen(true);
             }}
             className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95 font-bold"
@@ -1066,6 +1070,7 @@ export default function Sales() {
                                 }));
                                 setPaymentMethodPos(so.paymentMethod);
                                 setDueDate(so.dueDate || '');
+                                setSoDate(so.date ? so.date.split(' ')[0] : new Date().toISOString().split('T')[0]);
                                 setPosDiscount(so.discount || 0);
                                 setIsModalOpen(true);
                               }}
@@ -1605,6 +1610,7 @@ export default function Sales() {
         onClose={() => {
           setIsModalOpen(false);
           setEditingSO(null);
+          setSoDate(new Date().toISOString().split('T')[0]);
         }} 
         title={editingSO ? `Edit Pesanan: ${editingSO.id}` : "Buat Pesanan Penjualan Baru"}
         size="full"
@@ -1725,6 +1731,31 @@ export default function Sales() {
             <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-3 space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Tanggal Transaksi</label>
+                  <input
+                    type="date"
+                    value={soDate}
+                    onChange={(e) => setSoDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Sales</label>
+                  <input
+                    type="text"
+                    value={posSalesPerson}
+                    onChange={(e) => setPosSalesPerson(e.target.value)}
+                    placeholder="Kito Nian"
+                    list="pos-sales-datalist"
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <datalist id="pos-sales-datalist">
+                    {availableSalesNames.map(name => <option key={name} value={name} />)}
+                  </datalist>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60">
+                <div>
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Pelanggan</label>
                   <input
                     type="text"
@@ -1748,20 +1779,6 @@ export default function Sales() {
                     className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                   />
                 </div>
-              </div>
-              <div className="flex items-center justify-between pt-1 border-t border-slate-200/50">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Sales:</span>
-                <input
-                  type="text"
-                  value={posSalesPerson}
-                  onChange={(e) => setPosSalesPerson(e.target.value)}
-                  placeholder="Kito Nian"
-                  list="pos-sales-datalist"
-                  className="w-36 text-right px-2 py-0.5 bg-white border border-slate-200 rounded text-xs font-semibold text-slate-700 focus:outline-none"
-                />
-                <datalist id="pos-sales-datalist">
-                  {availableSalesNames.map(name => <option key={name} value={name} />)}
-                </datalist>
               </div>
             </div>
 

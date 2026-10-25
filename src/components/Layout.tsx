@@ -100,7 +100,8 @@ export default function Layout() {
                 className="w-9 h-9 flex items-center justify-center hover:bg-emerald-700/60 rounded-lg transition-colors text-white/90 hover:text-white shrink-0"
                 title="Sembunyikan Sidebar"
               >
-                <PanelLeftClose size={20} />
+                <X size={20} className="lg:hidden" />
+                <PanelLeftClose size={20} className="hidden lg:block" />
               </button>
             </>
           ) : (
@@ -186,9 +187,14 @@ export default function Layout() {
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
               className="w-9 h-9 flex items-center justify-center hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
-              title={isSidebarOpen ? "Sembunyikan Sidebar" : "Buka Sidebar"}
+              title={isSidebarOpen ? "Sembunyikan Sidebar" : "Buka Menu"}
             >
-              {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+              <span className="lg:hidden flex items-center justify-center">
+                {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
+              </span>
+              <span className="hidden lg:flex items-center justify-center">
+                {isSidebarOpen ? <PanelLeftClose size={20} /> : <Menu size={20} />}
+              </span>
             </button>
             <h1 className="text-lg font-semibold text-slate-800 hidden sm:block">
               {sidebarItems.find(item => item.path === location.pathname)?.name || 'Dashboard'}

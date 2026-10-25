@@ -736,6 +736,7 @@ export default function Sales() {
                 return d.toISOString().split('T')[0];
               });
               setSoDate(new Date().toISOString().split('T')[0]);
+              setIsCartOpenMobile(false);
               setIsModalOpen(true);
             }}
             className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center gap-2 shadow-lg shadow-emerald-200 transition-all active:scale-95 font-bold"
@@ -1072,6 +1073,7 @@ export default function Sales() {
                                 setDueDate(so.dueDate || '');
                                 setSoDate(so.date ? so.date.split(' ')[0] : new Date().toISOString().split('T')[0]);
                                 setPosDiscount(so.discount || 0);
+                                setIsCartOpenMobile(false);
                                 setIsModalOpen(true);
                               }}
                               className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
@@ -1611,519 +1613,574 @@ export default function Sales() {
           setIsModalOpen(false);
           setEditingSO(null);
           setSoDate(new Date().toISOString().split('T')[0]);
+          setIsCartOpenMobile(false);
         }} 
         title={editingSO ? `Edit Pesanan: ${editingSO.id}` : "Buat Pesanan Penjualan Baru"}
         size="full"
       >
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[620px] max-h-[82vh] overflow-hidden">
-          {/* KATALOG PRODUK (KIRI) */}
-          <div className="lg:col-span-7 xl:col-span-8 flex flex-col min-h-0 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
-            {/* Search & Category Pills */}
-            <div className="flex flex-col sm:flex-row gap-2.5 mb-3.5">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                <input
-                  type="text"
-                  placeholder="Cari produk kerupuk / pempek..."
-                  value={posSearchQuery}
-                  onChange={(e) => setPosSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-sm transition-all"
-                />
-                {posSearchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setPosSearchQuery('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-                {posCategories.map(cat => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setPosCategory(cat)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
-                      posCategory === cat
-                        ? "bg-slate-900 text-white shadow-sm"
-                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                    )}
-                  >
-                    {cat === 'all' ? 'Semua' : cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Product Cards Grid */}
-            <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 content-start custom-scrollbar">
-              {posProducts.map(product => {
-                const cartItem = posCart.find(i => i.productId === product.id);
-
-                return (
-                  <div
-                    key={product.id}
-                    onClick={() => handlePosAddToCart(product)}
-                    className={cn(
-                      "group relative bg-white border rounded-2xl p-3 flex flex-col justify-between cursor-pointer transition-all duration-150 select-none",
-                      cartItem
-                        ? "border-emerald-500 shadow-md ring-2 ring-emerald-500/20 bg-emerald-50/10"
-                        : "border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5"
-                    )}
-                  >
-                    {/* Badge Qty in Cart */}
-                    {cartItem && (
-                      <span className="absolute -top-2 -right-2 bg-emerald-600 text-white font-black text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-scale-up">
-                        {cartItem.quantity}
-                      </span>
-                    )}
-
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1.5">
-                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 truncate max-w-[100px]">
-                          {product.category}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors">
-                        {product.name}
-                      </h4>
-                    </div>
-
-                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] text-slate-400 font-medium">Harga Satuan</div>
-                        <div className="text-xs sm:text-sm font-black text-emerald-600">
-                          Rp {product.price.toLocaleString('id-ID')}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        className={cn(
-                          "w-7 h-7 rounded-xl flex items-center justify-center transition-all",
-                          cartItem
-                            ? "bg-emerald-600 text-white shadow-sm"
-                            : "bg-slate-100 text-slate-600 group-hover:bg-emerald-600 group-hover:text-white"
-                        )}
-                      >
-                        <Plus size={15} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-
-              {posProducts.length === 0 && (
-                <div className="col-span-full py-16 text-center text-slate-400">
-                  <Package className="mx-auto mb-2 opacity-40" size={40} />
-                  <p className="text-sm font-semibold">Tidak ada produk ditemukan.</p>
-                  <p className="text-xs text-slate-400 mt-1">Coba kata kunci pencarian atau kategori lain.</p>
-                </div>
+        <div className="h-full flex flex-col min-h-0 overflow-hidden">
+          {/* Mobile/Small Tablet Tab Switcher (< md) */}
+          <div className="md:hidden flex items-center gap-1 bg-slate-100 p-1 rounded-xl mb-2 flex-shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsCartOpenMobile(false)}
+              className={cn(
+                "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center",
+                !isCartOpenMobile ? "bg-white text-emerald-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
               )}
-            </div>
+            >
+              Katalog Produk
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsCartOpenMobile(true)}
+              className={cn(
+                "flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all text-center flex items-center justify-center gap-1.5",
+                isCartOpenMobile ? "bg-emerald-600 text-white shadow-xs" : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              <ShoppingCart size={14} />
+              Keranjang ({posCart.reduce((sum, i) => sum + i.quantity, 0)})
+              {posGrandTotal > 0 && <span className="font-black">· Rp {posGrandTotal.toLocaleString('id-ID')}</span>}
+            </button>
           </div>
 
-          {/* KERANJANG & CHECKOUT (KANAN) */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 min-h-0">
-            {/* Customer & Sales Person Header */}
-            <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 mb-3 space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Tanggal Transaksi</label>
-                  <input
-                    type="date"
-                    value={soDate}
-                    onChange={(e) => setSoDate(e.target.value)}
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Sales</label>
+          <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-3 lg:gap-4 overflow-hidden">
+            {/* KATALOG PRODUK (KIRI) */}
+            <div className={cn(
+              "md:col-span-6 lg:col-span-7 xl:col-span-8 flex flex-col min-h-0 bg-slate-50/70 p-3 sm:p-3.5 rounded-2xl border border-slate-200/80 h-full overflow-hidden",
+              isCartOpenMobile ? "hidden md:flex" : "flex"
+            )}>
+              {/* Search & Category Pills */}
+              <div className="flex flex-col sm:flex-row gap-2 mb-2.5 flex-shrink-0">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
                     type="text"
-                    value={posSalesPerson}
-                    onChange={(e) => setPosSalesPerson(e.target.value)}
-                    placeholder="Kito Nian"
-                    list="pos-sales-datalist"
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="Cari produk kerupuk / pempek..."
+                    value={posSearchQuery}
+                    onChange={(e) => setPosSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-1.5 sm:py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 shadow-xs transition-all"
                   />
-                  <datalist id="pos-sales-datalist">
-                    {availableSalesNames.map(name => <option key={name} value={name} />)}
-                  </datalist>
+                  {posSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setPosSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
+                  {posCategories.map(cat => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setPosCategory(cat)}
+                      className={cn(
+                        "px-2.5 py-1 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all whitespace-nowrap",
+                        posCategory === cat
+                          ? "bg-slate-900 text-white shadow-xs"
+                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                      )}
+                    >
+                      {cat === 'all' ? 'Semua' : cat}
+                    </button>
+                  ))}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60">
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">Pelanggan</label>
-                  <input
-                    type="text"
-                    value={posCustomerName}
-                    onChange={(e) => setPosCustomerName(e.target.value)}
-                    placeholder="Nama Pelanggan (opsional)"
-                    list="pos-customers-datalist"
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                  <datalist id="pos-customers-datalist">
-                    {customers.map(c => <option key={c.id} value={c.name} />)}
-                  </datalist>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-1">No. WhatsApp</label>
-                  <input
-                    type="tel"
-                    value={posCustomerPhone}
-                    onChange={(e) => setPosCustomerPhone(e.target.value)}
-                    placeholder="08..."
-                    className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-            </div>
 
-            {/* Cart Header */}
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-              <div className="flex items-center gap-2">
-                <ShoppingCart size={16} className="text-emerald-600" />
-                <span className="text-xs font-black uppercase tracking-wider text-slate-700">
-                  Keranjang ({posCart.reduce((sum, i) => sum + i.quantity, 0)})
-                </span>
-              </div>
-              {posCart.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handlePosClearCart}
-                  className="text-[11px] font-bold text-rose-500 hover:text-rose-700 hover:underline"
-                >
-                  Kosongkan
-                </button>
-              )}
-            </div>
+              {/* Product Cards Grid */}
+              <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 content-start custom-scrollbar min-h-0">
+                {posProducts.map(product => {
+                  const cartItem = posCart.find(i => i.productId === product.id);
 
-            {/* Cart Items List */}
-            <div className="flex-1 overflow-y-auto pr-1 space-y-2 mb-3 min-h-[140px] custom-scrollbar">
-              {posCart.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-8">
-                  <ShoppingBag size={38} className="opacity-30 mb-2" />
-                  <p className="text-xs font-bold text-slate-500">Keranjang masih kosong</p>
-                  <p className="text-[11px] text-slate-400">Pilih produk di katalog untuk menambahkan.</p>
-                </div>
-              ) : (
-                posCart.map((item) => {
-                  const isPriceModified = item.originalPrice !== undefined && item.price !== item.originalPrice;
-                  const itemSubtotal = item.quantity * item.price;
                   return (
-                    <div key={item.productId} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
-                      <div className="flex items-start justify-between gap-1">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 text-xs truncate leading-snug">{item.productName}</p>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Satuan: {item.unit}</span>
+                    <div
+                      key={product.id}
+                      onClick={() => handlePosAddToCart(product)}
+                      className={cn(
+                        "group relative bg-white border rounded-2xl p-2.5 sm:p-3 flex flex-col justify-between cursor-pointer transition-all duration-150 select-none",
+                        cartItem
+                          ? "border-emerald-500 shadow-md ring-2 ring-emerald-500/20 bg-emerald-50/10"
+                          : "border-slate-200 hover:border-slate-300 hover:shadow-md hover:-translate-y-0.5"
+                      )}
+                    >
+                      {/* Badge Qty in Cart */}
+                      {cartItem && (
+                        <span className="absolute -top-2 -right-2 bg-emerald-600 text-white font-black text-[11px] w-6 h-6 rounded-full flex items-center justify-center shadow-md border-2 border-white animate-scale-up">
+                          {cartItem.quantity}
+                        </span>
+                      )}
+
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 truncate max-w-[100px]">
+                            {product.category}
+                          </span>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-xs sm:text-sm line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors">
+                          {product.name}
+                        </h4>
+                      </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-medium">Harga Satuan</div>
+                          <div className="text-xs sm:text-sm font-black text-emerald-600">
+                            Rp {product.price.toLocaleString('id-ID')}
+                          </div>
                         </div>
                         <button
                           type="button"
-                          onClick={() => handlePosRemoveItem(item.productId)}
-                          className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-
-                      {/* Unit Switcher (Kebutuhan No. 4: Penjualan per gram, No. 5: Penjualan per bungkus) */}
-                      <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                        <span className="text-[10px] font-bold text-slate-400">Pilih Satuan:</span>
-                        <div className="flex items-center gap-1">
-                          {(['kg', 'gr', 'bks', 'pcs'] as const).map(u => (
-                            <button
-                              key={u}
-                              type="button"
-                              onClick={() => handlePosChangeUnit(item.productId, u)}
-                              className={cn(
-                                "px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
-                                item.unit === u
-                                  ? "bg-emerald-600 text-white shadow-2xs"
-                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                              )}
-                            >
-                              {u}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Quick Presets for Gram (Kebutuhan No. 4) */}
-                      {item.unit === 'gr' && (
-                        <div className="flex items-center gap-1 bg-emerald-50/70 p-1.5 rounded-lg border border-emerald-100">
-                          <span className="text-[9px] font-black text-emerald-800 whitespace-nowrap">Takaran:</span>
-                          {[250, 500, 1000].map(gr => (
-                            <button
-                              key={gr}
-                              type="button"
-                              onClick={() => handlePosSetQty(item.productId, gr)}
-                              className={cn(
-                                "px-2 py-0.5 rounded text-[10px] font-bold transition-all border",
-                                item.quantity === gr
-                                  ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
-                                  : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-100"
-                              )}
-                            >
-                              {gr} gr
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Quick Presets for Bungkus / Reseller (Kebutuhan No. 5) */}
-                      {item.unit === 'bks' && (
-                        <div className="flex items-center gap-1 bg-blue-50/70 p-1.5 rounded-lg border border-blue-100">
-                          <span className="text-[9px] font-black text-blue-800 whitespace-nowrap">Reseller:</span>
-                          {[1, 5, 10, 20].map(bks => (
-                            <button
-                              key={bks}
-                              type="button"
-                              onClick={() => handlePosSetQty(item.productId, bks)}
-                              className={cn(
-                                "px-2 py-0.5 rounded text-[10px] font-bold transition-all border",
-                                item.quantity === bks
-                                  ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
-                                  : "bg-white text-blue-800 border-blue-200 hover:bg-blue-100"
-                              )}
-                            >
-                              {bks} bks
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Manual Price Override (Kebutuhan No. 3: Input Harga Manual) */}
-                      <div className="flex items-center justify-between gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/90">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">@ Rp</span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            value={item.price}
-                            onChange={(e) => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                            className={cn(
-                              "w-24 px-1.5 py-0.5 rounded text-xs font-black outline-none transition-all",
-                              isPriceModified 
-                                ? "bg-amber-50 text-amber-900 border border-amber-300 focus:ring-1 focus:ring-amber-500" 
-                                : "bg-slate-50 text-slate-800 border border-slate-200 focus:ring-1 focus:ring-emerald-500"
-                            )}
-                          />
-                          {isPriceModified && (
-                            <span className="text-[9px] font-black px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
-                              Harga Manual
-                            </span>
+                          className={cn(
+                            "w-7 h-7 rounded-xl flex items-center justify-center transition-all",
+                            cartItem
+                              ? "bg-emerald-600 text-white shadow-xs"
+                              : "bg-slate-100 text-slate-600 group-hover:bg-emerald-600 group-hover:text-white"
                           )}
-                        </div>
-                        {isPriceModified && (
-                          <button
-                            type="button"
-                            onClick={() => handlePosUpdatePrice(item.productId, item.originalPrice || 0)}
-                            className="text-[9px] font-bold text-slate-500 hover:text-emerald-700 underline flex items-center gap-0.5 whitespace-nowrap"
-                            title="Kembalikan ke harga master"
-                          >
-                            <RotateCcw size={10} />
-                            Reset
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Stepper & Total */}
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? -50 : (item.unit === 'kg' ? -0.5 : -1))}
-                            className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0.001"
-                              step="any"
-                              value={item.quantity}
-                              onChange={(e) => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
-                              className="w-16 text-center text-xs font-black bg-white border border-slate-200 rounded-md py-0.5 focus:outline-none"
-                            />
-                            <span className="text-[10px] font-bold text-slate-500">{item.unit}</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? 50 : (item.unit === 'kg' ? 0.5 : 1))}
-                            className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-xs font-black text-slate-800">
-                            Rp {itemSubtotal.toLocaleString('id-ID')}
-                          </div>
-                        </div>
+                        >
+                          <Plus size={15} />
+                        </button>
                       </div>
                     </div>
                   );
-                })
+                })}
+
+                {posProducts.length === 0 && (
+                  <div className="col-span-full py-16 text-center text-slate-400">
+                    <Package className="mx-auto mb-2 opacity-40" size={40} />
+                    <p className="text-sm font-semibold">Tidak ada produk ditemukan.</p>
+                    <p className="text-xs text-slate-400 mt-1">Coba kata kunci pencarian atau kategori lain.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Mobile quick jump to cart button */}
+              {posCart.length > 0 && (
+                <div className="md:hidden mt-2 pt-2 border-t border-slate-200/80 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpenMobile(true)}
+                    className="w-full py-2 px-3 bg-emerald-600 text-white rounded-xl text-xs font-black flex items-center justify-between shadow-md active:scale-98 transition-all"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <ShoppingCart size={15} />
+                      {posCart.reduce((sum, i) => sum + i.quantity, 0)} item dipilih
+                    </span>
+                    <span>Rp {posGrandTotal.toLocaleString('id-ID')} &rarr;</span>
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* Calculations & Payment */}
-            <div className="pt-2 border-t border-slate-200 space-y-2 mt-auto">
-              <div className="space-y-1 text-xs">
-                <div className="flex justify-between text-slate-500">
-                  <span>Subtotal</span>
-                  <span className="font-bold text-slate-700">Rp {posSubtotal.toLocaleString('id-ID')}</span>
-                </div>
-                <div className="flex items-center justify-between text-slate-500">
-                  <div className="flex items-center gap-1">
-                    <span>Diskon</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={posDiscount || ''}
-                      placeholder="0"
-                      onChange={(e) => setPosDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                      className="w-12 px-1 py-0.5 text-center bg-slate-50 border border-slate-200 rounded text-xs font-bold"
-                    />
-                    <span>%</span>
-                  </div>
-                  <span className="font-bold text-rose-600">- Rp {posDiscountAmount.toLocaleString('id-ID')}</span>
-                </div>
-                <div className="flex justify-between items-baseline pt-1.5 border-t border-slate-200">
-                  <span className="font-black text-slate-800 text-sm">Total Tagihan</span>
-                  <span className="font-black text-emerald-600 text-xl">Rp {posGrandTotal.toLocaleString('id-ID')}</span>
-                </div>
-              </div>
-
-              {/* Payment Methods */}
-              <div className="grid grid-cols-3 gap-1.5 pt-1">
-                {(['Cash', 'Transfer', 'Debt'] as const).map(method => (
-                  <button
-                    key={method}
-                    type="button"
-                    onClick={() => setPaymentMethodPos(method)}
-                    className={cn(
-                      "py-1.5 rounded-lg text-xs font-bold transition-all text-center",
-                      posPaymentMethod === method
-                        ? method === 'Cash' ? "bg-emerald-600 text-white shadow" : method === 'Transfer' ? "bg-blue-600 text-white shadow" : "bg-amber-600 text-white shadow"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    )}
-                  >
-                    {method === 'Cash' ? 'Tunai' : method === 'Transfer' ? 'Transfer' : 'Tempo (Utang)'}
-                  </button>
-                ))}
-              </div>
-
-              {/* Cash Calculator */}
-              {posPaymentMethod === 'Cash' && (
-                <div className="p-2.5 bg-emerald-50/70 border border-emerald-200/70 rounded-xl space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-600">Uang Diterima:</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs font-bold text-slate-500">Rp</span>
+            {/* KERANJANG & CHECKOUT (KANAN) */}
+            <div className={cn(
+              "md:col-span-6 lg:col-span-5 xl:col-span-4 flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-sm p-3 sm:p-3.5 min-h-0 h-full overflow-hidden",
+              !isCartOpenMobile ? "hidden md:flex" : "flex"
+            )}>
+              {/* Scrollable Upper Area: Customer Info, Cart Items, Ringkasan, & Payment */}
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 custom-scrollbar">
+                {/* Customer & Sales Person Header */}
+                <div className="bg-slate-50 p-2.5 sm:p-3 rounded-xl border border-slate-200/80 space-y-1.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Tanggal Transaksi</label>
                       <input
-                        type="number"
-                        min="0"
-                        value={posCashReceived > 0 ? posCashReceived : (posGrandTotal > 0 ? posGrandTotal : '')}
-                        placeholder={posGrandTotal > 0 ? posGrandTotal.toString() : "Uang Pas"}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value);
-                          setPosCashReceived(isNaN(val) ? 0 : val);
-                        }}
-                        className="w-28 px-2 py-1 bg-white border border-emerald-300 rounded text-xs font-black text-right text-slate-800 focus:outline-none"
+                        type="date"
+                        value={soDate}
+                        onChange={(e) => setSoDate(e.target.value)}
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Sales</label>
+                      <input
+                        type="text"
+                        value={posSalesPerson}
+                        onChange={(e) => setPosSalesPerson(e.target.value)}
+                        placeholder="Kito Nian"
+                        list="pos-sales-datalist"
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <datalist id="pos-sales-datalist">
+                        {availableSalesNames.map(name => <option key={name} value={name} />)}
+                      </datalist>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pt-1.5 border-t border-slate-200/60">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">Pelanggan</label>
+                      <input
+                        type="text"
+                        value={posCustomerName}
+                        onChange={(e) => setPosCustomerName(e.target.value)}
+                        placeholder="Nama Pelanggan (opsional)"
+                        list="pos-customers-datalist"
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      />
+                      <datalist id="pos-customers-datalist">
+                        {customers.map(c => <option key={c.id} value={c.name} />)}
+                      </datalist>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">No. WhatsApp</label>
+                      <input
+                        type="tel"
+                        value={posCustomerPhone}
+                        onChange={(e) => setPosCustomerPhone(e.target.value)}
+                        placeholder="08..."
+                        className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
                   </div>
-                  {/* Quick Cash Buttons */}
-                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                </div>
+
+                {/* Cart Header */}
+                <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <ShoppingCart size={15} className="text-emerald-600" />
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-700">
+                      Keranjang ({posCart.reduce((sum, i) => sum + i.quantity, 0)})
+                    </span>
+                  </div>
+                  {posCart.length > 0 && (
                     <button
                       type="button"
-                      onClick={() => setPosCashReceived(posGrandTotal)}
-                      className={cn(
-                        "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
-                        (posCashReceived === 0 || posCashReceived === posGrandTotal)
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                          : "bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                      )}
+                      onClick={handlePosClearCart}
+                      className="text-[11px] font-bold text-rose-500 hover:text-rose-700 hover:underline"
                     >
-                      Uang Pas
+                      Kosongkan
                     </button>
-                    {[50000, 100000, 200000, 500000].map(val => (
+                  )}
+                </div>
+
+                {/* Cart Items List */}
+                <div className="space-y-2">
+                  {posCart.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-slate-400 py-6">
+                      <ShoppingBag size={34} className="opacity-30 mb-1.5" />
+                      <p className="text-xs font-bold text-slate-500">Keranjang masih kosong</p>
+                      <p className="text-[11px] text-slate-400">Pilih produk di katalog untuk menambahkan.</p>
+                    </div>
+                  ) : (
+                    posCart.map((item) => {
+                      const isPriceModified = item.originalPrice !== undefined && item.price !== item.originalPrice;
+                      const itemSubtotal = item.quantity * item.price;
+                      return (
+                        <div key={item.productId} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
+                          <div className="flex items-start justify-between gap-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-slate-800 text-xs truncate leading-snug">{item.productName}</p>
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">Satuan: {item.unit}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handlePosRemoveItem(item.productId)}
+                              className="text-slate-400 hover:text-rose-600 p-0.5 rounded transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+
+                          {/* Unit Switcher */}
+                          <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                            <span className="text-[10px] font-bold text-slate-400">Pilih Satuan:</span>
+                            <div className="flex items-center gap-1">
+                              {(['kg', 'gr', 'bks', 'pcs'] as const).map(u => (
+                                <button
+                                  key={u}
+                                  type="button"
+                                  onClick={() => handlePosChangeUnit(item.productId, u)}
+                                  className={cn(
+                                    "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
+                                    item.unit === u
+                                      ? "bg-emerald-600 text-white shadow-2xs"
+                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                  )}
+                                >
+                                  {u}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Quick Presets for Gram */}
+                          {item.unit === 'gr' && (
+                            <div className="flex items-center gap-1 bg-emerald-50/70 p-1 rounded-lg border border-emerald-100">
+                              <span className="text-[9px] font-black text-emerald-800 whitespace-nowrap">Takaran:</span>
+                              {[250, 500, 1000].map(gr => (
+                                <button
+                                  key={gr}
+                                  type="button"
+                                  onClick={() => handlePosSetQty(item.productId, gr)}
+                                  className={cn(
+                                    "px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border",
+                                    item.quantity === gr
+                                      ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                      : "bg-white text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                  )}
+                                >
+                                  {gr} gr
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Quick Presets for Bungkus / Reseller */}
+                          {item.unit === 'bks' && (
+                            <div className="flex items-center gap-1 bg-blue-50/70 p-1 rounded-lg border border-blue-100">
+                              <span className="text-[9px] font-black text-blue-800 whitespace-nowrap">Reseller:</span>
+                              {[1, 5, 10, 20].map(bks => (
+                                <button
+                                  key={bks}
+                                  type="button"
+                                  onClick={() => handlePosSetQty(item.productId, bks)}
+                                  className={cn(
+                                    "px-1.5 py-0.5 rounded text-[10px] font-bold transition-all border",
+                                    item.quantity === bks
+                                      ? "bg-blue-600 text-white border-blue-600 shadow-2xs"
+                                      : "bg-white text-blue-800 border-blue-200 hover:bg-blue-100"
+                                  )}
+                                >
+                                  {bks} bks
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Manual Price Override */}
+                          <div className="flex items-center justify-between gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200/90">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[11px] font-bold text-slate-500 whitespace-nowrap">@ Rp</span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.price}
+                                onChange={(e) => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                                className={cn(
+                                  "w-20 px-1 py-0.5 rounded text-xs font-black outline-none transition-all",
+                                  isPriceModified 
+                                    ? "bg-amber-50 text-amber-900 border border-amber-300 focus:ring-1 focus:ring-amber-500" 
+                                    : "bg-slate-50 text-slate-800 border border-slate-200 focus:ring-1 focus:ring-emerald-500"
+                                )}
+                              />
+                              {isPriceModified && (
+                                <span className="text-[9px] font-black px-1 py-0.5 bg-amber-100 text-amber-800 rounded">
+                                  Manual
+                                </span>
+                              )}
+                            </div>
+                            {isPriceModified && (
+                              <button
+                                type="button"
+                                onClick={() => handlePosUpdatePrice(item.productId, item.originalPrice || 0)}
+                                className="text-[9px] font-bold text-slate-500 hover:text-emerald-700 underline flex items-center gap-0.5 whitespace-nowrap"
+                                title="Kembalikan ke harga master"
+                              >
+                                <RotateCcw size={10} />
+                                Reset
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Stepper & Total */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? -50 : (item.unit === 'kg' ? -0.5 : -1))}
+                                className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
+                              >
+                                <Minus size={11} />
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min="0.001"
+                                  step="any"
+                                  value={item.quantity}
+                                  onChange={(e) => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
+                                  className="w-14 text-center text-xs font-black bg-white border border-slate-200 rounded-md py-0.5 focus:outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-slate-500">{item.unit}</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handlePosUpdateQty(item.productId, item.unit === 'gr' ? 50 : (item.unit === 'kg' ? 0.5 : 1))}
+                                className="w-6 h-6 rounded-md bg-white border border-slate-300 flex items-center justify-center text-slate-700 hover:bg-slate-100 font-bold active:scale-95"
+                              >
+                                <Plus size={11} />
+                              </button>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs font-black text-slate-800">
+                                Rp {itemSubtotal.toLocaleString('id-ID')}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Calculations & Payment */}
+                <div className="pt-2 border-t border-slate-200 space-y-2">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between text-slate-500">
+                      <span>Subtotal</span>
+                      <span className="font-bold text-slate-700">Rp {posSubtotal.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-500">
+                      <div className="flex items-center gap-1">
+                        <span>Diskon</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={posDiscount || ''}
+                          placeholder="0"
+                          onChange={(e) => setPosDiscount(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                          className="w-12 px-1 py-0.5 text-center bg-slate-50 border border-slate-200 rounded text-xs font-bold"
+                        />
+                        <span>%</span>
+                      </div>
+                      <span className="font-bold text-rose-600">- Rp {posDiscountAmount.toLocaleString('id-ID')}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline pt-1.5 border-t border-slate-200">
+                      <span className="font-black text-slate-800 text-sm">Total Tagihan</span>
+                      <span className="font-black text-emerald-600 text-lg sm:text-xl">Rp {posGrandTotal.toLocaleString('id-ID')}</span>
+                    </div>
+                  </div>
+
+                  {/* Payment Methods */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-0.5">
+                    {(['Cash', 'Transfer', 'Debt'] as const).map(method => (
                       <button
-                        key={val}
+                        key={method}
                         type="button"
-                        onClick={() => setPosCashReceived(val)}
+                        onClick={() => setPaymentMethodPos(method)}
                         className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
-                          posCashReceived === val
-                            ? "bg-slate-800 text-white border-slate-800 shadow-xs"
-                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                          "py-1.5 rounded-lg text-xs font-bold transition-all text-center",
+                          posPaymentMethod === method
+                            ? method === 'Cash' ? "bg-emerald-600 text-white shadow-xs" : method === 'Transfer' ? "bg-blue-600 text-white shadow-xs" : "bg-amber-600 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         )}
                       >
-                        {(val / 1000)}k
+                        {method === 'Cash' ? 'Tunai' : method === 'Transfer' ? 'Transfer' : 'Tempo'}
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-emerald-200/50">
-                    <span className="text-[11px] font-bold text-slate-600">Kembalian:</span>
-                    <span className="text-xs font-black text-emerald-700">Rp {posChange.toLocaleString('id-ID')}</span>
+
+                  {/* Cash Calculator */}
+                  {posPaymentMethod === 'Cash' && (
+                    <div className="p-2 sm:p-2.5 bg-emerald-50/70 border border-emerald-200/70 rounded-xl space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-600">Uang Diterima:</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-slate-500">Rp</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={posCashReceived > 0 ? posCashReceived : (posGrandTotal > 0 ? posGrandTotal : '')}
+                            placeholder={posGrandTotal > 0 ? posGrandTotal.toString() : "Uang Pas"}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setPosCashReceived(isNaN(val) ? 0 : val);
+                            }}
+                            className="w-28 px-2 py-1 bg-white border border-emerald-300 rounded text-xs font-black text-right text-slate-800 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                      {/* Quick Cash Buttons */}
+                      <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setPosCashReceived(posGrandTotal)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
+                            (posCashReceived === 0 || posCashReceived === posGrandTotal)
+                              ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                              : "bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                          )}
+                        >
+                          Uang Pas
+                        </button>
+                        {[50000, 100000, 200000, 500000].map(val => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => setPosCashReceived(val)}
+                            className={cn(
+                              "px-2 py-0.5 rounded text-[10px] font-bold whitespace-nowrap transition-all border",
+                              posCashReceived === val
+                                ? "bg-slate-800 text-white border-slate-800 shadow-xs"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-100"
+                            )}
+                          >
+                            {(val / 1000)}k
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-emerald-200/50">
+                        <span className="text-[11px] font-bold text-slate-600">Kembalian:</span>
+                        <span className="text-xs font-black text-emerald-700">Rp {posChange.toLocaleString('id-ID')}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Debt Due Date */}
+                  {posPaymentMethod === 'Debt' && (
+                    <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs">
+                      <span className="font-bold text-amber-800">Jatuh Tempo:</span>
+                      <input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        className="px-2 py-0.5 bg-white border border-amber-300 rounded text-xs font-bold text-amber-900"
+                      />
+                    </div>
+                  )}
+
+                  {/* Printer Size Toggle */}
+                  <div className="flex items-center justify-between px-1 text-[11px]">
+                    <span className="font-semibold text-slate-500">Ukuran Kertas Thermal:</span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setPosPrintType('Thermal')}
+                        className={cn(
+                          "px-2 py-0.5 rounded font-bold transition-all text-[10px]",
+                          posPrintType === 'Thermal' ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500"
+                        )}
+                      >
+                        58mm
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPosPrintType('Thermal80')}
+                        className={cn(
+                          "px-2 py-0.5 rounded font-bold transition-all text-[10px]",
+                          posPrintType === 'Thermal80' ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500"
+                        )}
+                      >
+                        80mm
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {/* Debt Due Date */}
-              {posPaymentMethod === 'Debt' && (
-                <div className="p-2 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between text-xs">
-                  <span className="font-bold text-amber-800">Jatuh Tempo:</span>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="px-2 py-0.5 bg-white border border-amber-300 rounded text-xs font-bold text-amber-900"
-                  />
-                </div>
-              )}
-
-              {/* Printer Size Toggle */}
-              <div className="flex items-center justify-between px-1 text-[11px]">
-                <span className="font-semibold text-slate-500">Ukuran Kertas Thermal:</span>
-                <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => setPosPrintType('Thermal')}
-                    className={cn(
-                      "px-2 py-0.5 rounded font-bold transition-all",
-                      posPrintType === 'Thermal' ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500"
-                    )}
-                  >
-                    ECO 58 (58mm)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPosPrintType('Thermal80')}
-                    className={cn(
-                      "px-2 py-0.5 rounded font-bold transition-all",
-                      posPrintType === 'Thermal80' ? "bg-white text-emerald-600 shadow-xs" : "text-slate-500"
-                    )}
-                  >
-                    ECO 80 (80mm)
-                  </button>
                 </div>
               </div>
 
-              {/* Checkout Action Buttons */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              {/* STICKY BOTTOM ACTION BUTTONS - NEVER SUNK / NEVER CUT OFF */}
+              <div className="flex-shrink-0 pt-2.5 mt-1 border-t border-slate-200/90 bg-white grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   disabled={posCart.length === 0 || isPosSubmitting}
                   onClick={() => handlePosCheckout(false)}
-                  className="py-2.5 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all disabled:opacity-50"
+                  className="py-2.5 px-3 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all disabled:opacity-50 active:scale-98"
                 >
                   Simpan Saja
                 </button>
@@ -2131,7 +2188,7 @@ export default function Sales() {
                   type="button"
                   disabled={posCart.length === 0 || isPosSubmitting}
                   onClick={() => handlePosCheckout(true)}
-                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 active:scale-98"
                 >
                   <Printer size={14} />
                   Bayar & Cetak

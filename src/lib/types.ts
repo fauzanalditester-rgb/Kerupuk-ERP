@@ -1,5 +1,5 @@
 export type Category = 'Bahan Baku' | 'Bumbu' | 'Kerupuk' | 'Pempek' | 'Packaging' | 'Operasional';
-export type Unit = 'kg' | 'L' | 'pcs' | 'bks' | 'unit' | 'tabung' | 'liter';
+export type Unit = 'kg' | 'L' | 'pcs' | 'bks' | 'pack' | 'unit' | 'tabung' | 'liter';
 export type Status = 'Good' | 'Low' | 'Critical';
 
 export interface InventoryItem {

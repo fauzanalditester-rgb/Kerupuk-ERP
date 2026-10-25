@@ -994,6 +994,7 @@ export default function Inventory() {
               <option value="L">L</option>
               <option value="pcs">pcs</option>
               <option value="bks">bks</option>
+              <option value="pack">pack</option>
               <option value="unit">unit</option>
               <option value="tabung">tabung</option>
               <option value="liter">liter</option>

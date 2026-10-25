@@ -528,7 +528,7 @@ export default function Sales() {
         }
         // Standar 1 bungkus = 250gr (1/4 harga master per kg)
         newPrice = Math.round(baseMasterPrice * 0.25);
-      } else if (newUnit === 'pcs') {
+      } else if (newUnit === 'pcs' || newUnit === 'pack') {
         newQty = 1;
         newPrice = baseMasterPrice;
       }
@@ -1885,26 +1885,28 @@ export default function Sales() {
                           </div>
 
                           {/* Unit Switcher */}
-                          <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
-                            <span className="text-[10px] font-bold text-slate-400">Pilih Satuan:</span>
-                            <div className="flex items-center gap-1">
-                              {(['kg', 'gr', 'bks', 'pcs'] as const).map(u => (
-                                <button
-                                  key={u}
-                                  type="button"
-                                  onClick={() => handlePosChangeUnit(item.productId, u)}
-                                  className={cn(
-                                    "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
-                                    item.unit === u
-                                      ? "bg-emerald-600 text-white shadow-2xs"
-                                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                                  )}
-                                >
-                                  {u}
-                                </button>
-                              ))}
+                          {item.unit !== 'pack' ? (
+                            <div className="flex items-center justify-between gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                              <span className="text-[10px] font-bold text-slate-400">Pilih Satuan:</span>
+                              <div className="flex items-center gap-1">
+                                {(['kg', 'gr', 'bks', 'pcs'] as const).map(u => (
+                                  <button
+                                    key={u}
+                                    type="button"
+                                    onClick={() => handlePosChangeUnit(item.productId, u)}
+                                    className={cn(
+                                      "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
+                                      item.unit === u
+                                        ? "bg-emerald-600 text-white shadow-2xs"
+                                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    )}
+                                  >
+                                    {u}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          ) : null}
 
                           {/* Quick Presets for Gram */}
                           {item.unit === 'gr' && (

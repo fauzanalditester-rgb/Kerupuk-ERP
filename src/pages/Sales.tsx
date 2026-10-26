@@ -1960,7 +1960,9 @@ export default function Sales() {
                                 type="number"
                                 min="0"
                                 step="any"
-                                value={item.price}
+                                value={item.price === 0 ? '' : item.price}
+                                placeholder="0"
+                                onFocus={(e) => e.target.select()}
                                 onChange={(e) => handlePosUpdatePrice(item.productId, parseFloat(e.target.value) || 0)}
                                 className={cn(
                                   "w-20 px-1 py-0.5 rounded text-xs font-black outline-none transition-all",
@@ -2003,7 +2005,9 @@ export default function Sales() {
                                   type="number"
                                   min="0.001"
                                   step="any"
-                                  value={item.quantity}
+                                  value={item.quantity === 0 ? '' : item.quantity}
+                                  placeholder="0"
+                                  onFocus={(e) => e.target.select()}
                                   onChange={(e) => handlePosSetQty(item.productId, parseFloat(e.target.value) || 0)}
                                   className="w-14 text-center text-xs font-black bg-white border border-slate-200 rounded-md py-0.5 focus:outline-none"
                                 />
@@ -2089,6 +2093,7 @@ export default function Sales() {
                             min="0"
                             value={posCashReceived > 0 ? posCashReceived : (posGrandTotal > 0 ? posGrandTotal : '')}
                             placeholder={posGrandTotal > 0 ? posGrandTotal.toString() : "Uang Pas"}
+                            onFocus={(e) => e.target.select()}
                             onChange={(e) => {
                               const val = parseFloat(e.target.value);
                               setPosCashReceived(isNaN(val) ? 0 : val);

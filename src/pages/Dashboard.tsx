@@ -68,7 +68,7 @@ export default function Dashboard() {
   const kpiData = [
     {
       title: 'Total Pendapatan',
-      value: `Rp ${(totalRevenue / 1000000).toFixed(1)}M`,
+      value: `Rp ${Math.round(totalRevenue).toLocaleString('id-ID')}`,
       change: 'Dari seluruh penjualan',
       trend: 'up',
       icon: DollarSign,
@@ -76,7 +76,7 @@ export default function Dashboard() {
     },
     {
       title: 'Total Laba Bersih',
-      value: `Rp ${(netProfit / 1000000).toFixed(1)}M`,
+      value: `Rp ${Math.round(netProfit).toLocaleString('id-ID')}`,
       change: netProfit >= 0 ? 'Profit' : 'Rugi',
       trend: netProfit >= 0 ? 'up' : 'down',
       icon: Wallet,

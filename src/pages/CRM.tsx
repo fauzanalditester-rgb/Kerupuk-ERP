@@ -208,7 +208,7 @@ export default function CRM() {
             </div>
             <span className="text-sm font-medium text-slate-500">Total Pendapatan</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">Rp {(totalRevenue / 1000000).toFixed(1)}M</p>
+          <p className="text-2xl font-bold text-slate-900">Rp {Math.round(totalRevenue).toLocaleString('id-ID')}</p>
         </div>
       </div>
 

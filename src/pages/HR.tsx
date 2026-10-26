@@ -131,7 +131,7 @@ export default function HR() {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">Estimasi Beban Gaji/Bulan</p>
-            <p className="text-2xl font-bold text-slate-900">Rp {(totalSalaryExpense / 1000000).toFixed(1)}M</p>
+            <p className="text-2xl font-bold text-slate-900">Rp {Math.round(totalSalaryExpense).toLocaleString('id-ID')}</p>
           </div>
         </div>
       </div>

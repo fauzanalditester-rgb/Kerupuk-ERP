@@ -475,7 +475,7 @@ export default function Inventory() {
             <span className="text-sm font-medium text-slate-500">Total Nilai</span>
           </div>
           <p className="text-2xl font-bold text-slate-900">
-            Rp {(totalValue / 1000000).toFixed(1)}M
+            Rp {Math.round(totalValue).toLocaleString('id-ID')}
           </p>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">

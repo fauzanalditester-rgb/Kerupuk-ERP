@@ -258,7 +258,7 @@ export default function Purchasing() {
             </div>
             <span className="text-sm font-medium text-slate-500">Total Belanja</span>
           </div>
-          <p className="text-2xl font-bold text-slate-900">Rp {(totalSpent / 1000000).toFixed(1)}M</p>
+          <p className="text-2xl font-bold text-slate-900">Rp {Math.round(totalSpent).toLocaleString('id-ID')}</p>
         </div>
         <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
           <div className="flex items-center gap-3 mb-2">

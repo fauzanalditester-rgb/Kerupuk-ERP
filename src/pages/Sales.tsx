@@ -425,6 +425,11 @@ export default function Sales() {
     setTempPrice(currentPrice);
   };
 
+  const handleSavePrice = (id: string) => {
+    updateInventoryItem(id, { price: tempPrice });
+    setEditingId(null);
+  };
+
   // POS Handlers & Calculations
   const posProducts = useMemo(() => {
     return inventory
@@ -805,7 +810,7 @@ export default function Sales() {
                 </div>
                 <span className="text-sm font-medium text-slate-500">Total Pendapatan</span>
               </div>
-              <p className="text-2xl font-bold text-slate-900">Rp {(totalRevenue / 1000000).toFixed(1)}M</p>
+              <p className="text-2xl font-bold text-slate-900">Rp {Math.round(totalRevenue).toLocaleString('id-ID')}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
